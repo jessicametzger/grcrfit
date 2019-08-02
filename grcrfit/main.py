@@ -1,4 +1,4 @@
-from .run import Run
+from .run import Run, Fitter
 
 # creates a run & executes its main tasks
 def run_fit(flag, fdict, nsteps=5000, nwalkers=None, rerun=False, PT=True, ntemps=10, parallel=True,
