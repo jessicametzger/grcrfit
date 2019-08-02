@@ -28,7 +28,7 @@ def Honda_LIS(LIS_params, E):
     return np.array(LIS_params[1]*(E/1000. + LIS_params[2]*np.exp(-LIS_params[3]*np.sqrt(E/1000.)))**(-LIS_params[0]))
 
 # get Kachelriess+14 multiplication factors
-mults=h.open_stdf(path+"grcrfit/enh_f_2014.dat","r")
+mults=h.open_stdf(path+"data/enh_f_2014.dat","r")
 
 # make table of multiplication factors
 mult_alphas = np.array([2., 2.2, 2.4, 2.6, 2.8, 3.])

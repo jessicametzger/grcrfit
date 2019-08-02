@@ -2,6 +2,11 @@ import numpy as np
 
 from . import physics as ph
 
+# spl = single power law
+# bpl = beta power law (p.l. w.r.t. momentum and beta)
+
+# WITH MODULATION
+
 def flux_spl(LIS_params, phi, E_TOA, Z, M):
     LIS_norm, alpha1 = LIS_params
 
@@ -35,7 +40,8 @@ def flux_bpl(LIS_params, phi, E_TOA, Z, M):
     
     return flux_TOA_model
 
-# INTERSTELLAR: NEGLECTING MODULATION
+
+# BELOW - INTERSTELLAR: NO MODULATION
 
 def flux_spl_IS(LIS_params, p, M):
     LIS_norm, alpha1 = LIS_params
