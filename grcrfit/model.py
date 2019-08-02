@@ -224,6 +224,9 @@ class Model():
             
             # create CR fluxes to match all datasets
             cr_fluxes = crfunc(theta)
+            for i in range(len(cr_fluxes)):
+                if not np.all(np.isfinite(cr_fluxes[i])):
+                    return -np.inf
             
             # compare CR fluxes to data
             # do Voyager separately for weighting
@@ -285,7 +288,7 @@ class Model():
         
     # default start positions for the MCMC sampler
     def get_startpos(self):
-        startpos=list(self.phis)
+        startpos=list(self.phis+np.random.normal(scale=1e-4))
         
         for i in range(self.LISorder.shape[0]):
             startpos+=[5e-12, -2.8]

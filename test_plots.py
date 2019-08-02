@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-f=open('./test_bpl1/walkers.dat','r')
+f=open('./test_bpl/walkers.dat','r')
 data=f.readlines()
 f.close()
 
@@ -23,5 +23,5 @@ for i in range(2,data.shape[-1]):
     for j in range(data.shape[0]):
         plt.plot(range(data[j,:,i].shape[0]),data[j,:,i],lw=.2)
     plt.title(names[i])
-    plt.savefig('./test_bpl1/param'+str(i)+'_walkers.png')
+    plt.savefig('./test_bpl/param'+str(i)+'_walkers.png')
     plt.clf()

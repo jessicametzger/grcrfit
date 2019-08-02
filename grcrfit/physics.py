@@ -20,6 +20,8 @@ def E_to_p(Ek,M):
     
     Etot = Ek + Em #total energy
     radical=Etot**2 - Em**2
+    if np.any(radical<0):
+        return -np.inf
     
     p = (1/C_SI)*np.sqrt(radical)
     return p
@@ -56,10 +58,13 @@ def demod_flux(flux,E,E_IS,M):
     E=E + Em #MeV Ekin to MeV Etot
     E_IS=E_IS + Em #MeV Ekin to MeV Etot
     flux_IS = flux*(E_IS**2 - Em**2)/(E**2 - Em**2)
+    if np.any(flux_IS<0):
+        return -np.inf
     return flux_IS
 
 def mod_energy(E,phi,Z):
     E_IS = E - abs(Z)*phi
+    if np.any(E_IS<0): return -np.inf
     return E_IS #MeV Ekin
 
 def mod_flux(flux_IS,E,E_IS,M):
@@ -68,5 +73,7 @@ def mod_flux(flux_IS,E,E_IS,M):
     E=E + Em #MeV Ekin to MeV Etot
     E_IS=E_IS + Em #MeV Ekin to MeV Etot
     flux = flux_IS*(E**2 - Em**2)/(E_IS**2 - Em**2)
+    if np.any(flux<0):
+        return -np.inf
     return flux
 
