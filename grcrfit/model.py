@@ -221,7 +221,7 @@ class Model():
             grlike = np.sum(np.array([np.sum(((gr_fluxes[i] - self.GRdata[i][:,1])/self.GRdata[i][:,2])**2.) \
                                       for i in range(len(gr_fluxes))]))
             
-            return crlike + grlike
+            return #crlike + grlike
         
         # CREATE LNPRIOR FUNCTION
         
