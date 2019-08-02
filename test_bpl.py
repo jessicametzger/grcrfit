@@ -36,6 +36,6 @@ fdict={'cr': {hdata: hnames,
               odata: onames},
        'gr': {gdata: gnames}}
 
-grcrfit.run_fit('test_bpl',fdict,nsteps=500,rerun=False,parallel=True,
+grcrfit.run_fit('test_bpl',fdict,nsteps=800,rerun=True,parallel=True,
                 modflags={'pl': 'b', 'enh': 0, 'weights': [.33,.33,.33]})
 
