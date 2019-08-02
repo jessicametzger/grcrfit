@@ -192,8 +192,9 @@ class Model():
         # get GR fluxes at GR energies
         # can consider some modflag options here
         def grfunc(theta):
-            LIS_params_pp = theta[self.phi_count:self.phi_count + self.LISparamcount]
-            return get_fluxes_pp(LIS_params_pp, GRdata)
+            LIS_params_pp = theta[self.phi_count + self.LISparamcount*self.LISdict['h']:\
+                                  self.phi_count + self.LISparamcount*(self.LISdict['h']+1)]
+            return grf.get_fluxes_pp(LIS_params_pp, self.GRdata)
         
         
         # CREATE LNLIKE FUNCTION

@@ -130,7 +130,7 @@ class Run:
                     if 'gamma' not in el_data[0,0]:
                         entry[:,0:3] = entry[:,0:3]*(1000.*ph.M_DICT[el_data[0,0].lower()])
                     else:
-                        entry[:,0:3] = entry[:,0:3]#*1000. #already in MeV(?)
+                        entry[:,0:3] = entry[:,0:3]#*1000. #already in MeV
                     
                     date = entry[0,-1]
                     phi = entry[0,-3]

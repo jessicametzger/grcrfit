@@ -143,11 +143,11 @@ int main(int argc, char* argv[])
     
     /* save to a file */
     if (flag != 1 && flag != 2) {
-	file = fopen("our_spectrum.csv", "w");
+        file = fopen("our_spectrum.csv", "w");
     } else if (flag == 1) {
-	file = fopen("dermer_spectrum1.csv","w");
+        file = fopen("dermer_spectrum1.csv","w");
     } else if (flag == 2) {
-	file = fopen("dermer_spectrum2.csv","w");
+        file = fopen("dermer_spectrum2.csv","w");
     }
 
     fprintf(file, "#spectrum due to power-law proton index %.2f\n", pl_index);

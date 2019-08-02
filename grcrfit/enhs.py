@@ -2,6 +2,7 @@ import numpy as np
 import os
 from scipy import interpolate
 
+from . import helpers as h
 from . import physics as ph
 
 path = os.getcwd()+'/'
@@ -26,11 +27,8 @@ LIS_params={'h': [2.74,14900,2.15,0.21],
 def Honda_LIS(LIS_params, E):
     return np.array(LIS_params[1]*(E/1000. + LIS_params[2]*np.exp(-LIS_params[3]*np.sqrt(E/1000.)))**(-LIS_params[0]))
 
-
 # get Kachelriess+14 multiplication factors
-f=open(path+"grcrfit/enh_f_2014.dat","r")
-mults=f.readlines()
-f.close()
+mults=h.open_stdf(path+"grcrfit/enh_f_2014.dat","r")
 
 # make table of multiplication factors
 mult_alphas = np.array([2., 2.2, 2.4, 2.6, 2.8, 3.])
