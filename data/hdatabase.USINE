@@ -1,6 +1,6 @@
 # Data export from the Cosmic-Ray database (http://lpsc.in2p3.fr/crdb)
 # Please cite Maurin, Melot, Taillet, A&A 569, A32 (2014) [arXiv:1302.5525]
-# Date: 2019/07/31
+# Date: 2019/08/02
 # Format: USINE code
 #   Col.1  -  QUANTITY NAME (case insensitive)
 #   Col.2  -  SUB-EXP NAME (case insensitive, no space)

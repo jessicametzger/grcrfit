@@ -3,10 +3,11 @@ import numpy as np
 import datetime
 
 f=open(os.getcwd()+'/gamma_fluxes.dat','r')
-data=f.readlines()[1:]
+data=[x for x in f.readlines() if x[0]!='#']
 f.close()
 
 data=np.array([x.split(',') for x in data]).astype(np.float)
+data[:,0:2] = data[:,0:2]/1000. #to GeV
 print(data)
 d=datetime.datetime.today()
 print(type(d.year))
@@ -19,7 +20,7 @@ header= '# Date: '+str(d.year)+'/'+str(d.month)+'/'+str(d.day)+'\n'+\
     '#   Col.4  -  <E>: mean value bin [GeV/n, GeV, GV, or GeV]'+'\n'+\
     '#   Col.5  -  EBIN_LOW'+'\n'+\
     '#   Col.6  -  EBIN_HIGH'+'\n'+\
-    '#   Col.7  -  QUANTITY VALUE: [#/sr/s/m2/EAxis] if flux , no unit if ratio'+'\n'+\
+    '#   Col.7  -  QUANTITY VALUE: [#/sr/s/m2/EAxis] if flux , no unit if ratio, 1e24 emissivity if gamma flux'+'\n'+\
     '#   Col.8  -  ERR_STAT-'+'\n'+\
     '#   Col.9  -  ERR_STAT+'+'\n'+\
     '#   Col.10 -  ERR_SYST-'+'\n'+\

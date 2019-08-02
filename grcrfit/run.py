@@ -11,6 +11,7 @@ from . import helpers as h
 from . import physics as ph
 from .model import Model
 
+path = os.getcwd()+'/'
 
 # technical stuff - configuration of the fitting routine
 class Fitter:
@@ -103,9 +104,9 @@ class Run:
         self.metadata['modflags'] = modflags
         self.metadata['rerun'] = rerun
         
-        # paths for walker & metadata files
-        self.wkfilep=self.metadata['flag']+'/walkers.dat'
-        self.mdfilep=self.metadata['flag']+'/metadata.json'
+        # paths for walker & metadata files. They will be in a run directory in the repo folder
+        self.wkfilep=path + self.metadata['flag']+'/walkers.dat'
+        self.mdfilep=path + self.metadata['flag']+'/metadata.json'
         
         # make sure everything is new
         if not self.metadata['rerun'] and os.path.exists(self.metadata['flag']):
@@ -131,14 +132,17 @@ class Run:
                     # select & parse USINE columns to include
                     # all energy x-axis converted to MeV!!
                     entry = el_data[np.where(el_data[:,1] == exp)[0],:]
+                    if entry.shape[0]==0:
+                        print('Exp not found: '+el_data[0,0]+', '+exp)
+                        continue
                     
                     # check x-axis units
                     if np.any(entry[:,2]!='ekn') and entry[0,0].lower() != 'gamma':
-                          print('Invalid energy units for '+el_data[0,0]+', '+exp+': must be in kinetic energy/nucleon')
-                          sys.exit()
+                          print('Invalid energy units: '+el_data[0,0]+', '+exp+' (must be in kinetic energy/nucleon)')
+                          continue
                     if entry[0,0].lower() == 'gamma' and np.any(entry[:,2]!='ek'):
-                          print('Invalid energy units for '+el_data[0,0]+', '+exp+': must be in emissivity*1e24')
-                          sys.exit()
+                          print('Invalid energy units: '+el_data[0,0]+', '+exp+' (must be in kinetic energy)')
+                          continue
                     
                     # columns: Emean, Elow, Ehigh, value, stat-, stat+, sys-, sys+, phi, dist, date, is upper limit
                     entry = entry[:,np.array([3,4,5,6,7,8,9,10,12,13,14,15])]
@@ -147,28 +151,35 @@ class Run:
                     entry[:,-2] = np.array([str(h.Udate_to_JD(x)) for x in entry[:,-2]])
                     
                     # remove upper limits
-                    entry = entry[np.where(entry[:,-1].astype(np.int) != 1)[0],:-1] #remove last col too
-                    if entry.shape[0]==0: continue
+                    entry = entry[np.where(entry[:,-1].astype(np.int) != 1)[0],:-1] #remove u.l. flag col too
+                    if entry.shape[0]==0:
+                        print('All points upper limits: '+el_data[0,0]+', '+exp)
+                        continue
+                    
+                    entry=entry.astype(np.float)
                     
                     # no valid date for CR experiment?
-                    entry=entry.astype(np.float)
                     if np.any(entry[:,-1]<0) and el_data[0,0].lower() != 'gamma':
-                        print('Invalid date for '+el_data[0,0]+', '+exp)
-                        sys.exit()
+                        print('Invalid date: '+el_data[0,0]+', '+exp)
+                        continue
                     
-                    # check errorbars
-                    if np.any(np.array([np.all(entry[i,4:8]==0) for i in range(entry.shape[0])])):
-                        print('Point with no errorbars for '+el_data[0,0]+', '+exp)
-                        for i in range(entry.shape[0]):
-                            print(entry[i,4:8],np.all(entry[i,4:8]==0))
-                        sys.exit()
+                    # check errorbars - make sure there's at least one nonzero; make them positive
+                    entry = entry[np.where(np.array([not np.all(entry[i,4:8]==0) for i in range(entry.shape[0])]))]
+                    if entry.shape[0]==0: continue
                     entry[:,4:8]=np.abs(entry[:,4:8])
                     
                     # change energy units from GeV/n to MeV
                     if 'gamma' not in el_data[0,0]:
+                        
+                        # remove data higher than 300 GeV/n
+                        entry = entry[np.where(entry[:,0] < 300)[0],:]
+                        if entry.shape[0]==0:
+                            print('No low-energy data: '+el_data[0,0]+', '+exp)
+                            continue
+                        
                         entry[:,0:3] = entry[:,0:3]*(1000.*ph.M_DICT[el_data[0,0].lower()])
                     else:
-                        entry[:,0:3] = entry[:,0:3] #already in MeV
+                        entry[:,0:3] = entry[:,0:3]*1000.
                     
                     date = entry[0,-1]
                     phi = entry[0,-3]
@@ -240,7 +251,7 @@ class Run:
         
         # which steps to record?
         # - if rerun, all.
-        # - if not rerun, min(nsteps, 1000).
+        # - if not rerun, last min(nsteps, 1000).
         if self.metadata['rerun']:
             start_ind=0
         else:

@@ -5,9 +5,11 @@ import os
 from . import helpers as h
 from . import physics as ph
 
+# should start in repo directory
 path = os.getcwd()+'/'
 
-gammads = h.open_stdf(path+'/grcrfit/gammads.dat','r')
+# open gamma-ray cross-section contribution table
+gammads = h.open_stdf(path+'data/gammads.dat','r')
 gammads = np.array([x.split(',') for x in gammads]).astype(np.float)
 Tps = gammads[1:,0]
 Egs = gammads[0,1:]

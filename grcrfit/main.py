@@ -19,6 +19,10 @@ def run_fit(flag, fdict, nsteps=5000, nwalkers=None, rerun=False, PT=True, ntemp
 
     return
 
+# create walker plots (all params)
+def walker_plots():
+    return
+
 # create corner plots (all phis vs. everything else, individually)
 def corner_plots():
     return

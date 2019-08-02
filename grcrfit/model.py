@@ -148,7 +148,7 @@ class Model():
                 current_el=[]
                 for j in range(len(self.GRdata)):
                     current_el+=[ph.E_to_p(self.GRdata[j][:,0], ph.M_DICT[subkey])]
-                self.CRp_atGRE[key][subkey] = [current_el]
+                self.CRp_atGRE[key][subkey] = current_el
             
         # compile old LIS fluxes, inds
         self.CRfluxes={'h': None, 'he': None, 'cno': None, 'mgsi': None, 'fe': None}
@@ -184,8 +184,8 @@ class Model():
                         
                         CRfluxes_theta[key] = []
                         for i in range(len(self.GRdata)):
-                            CRfluxes_theta[key] += [self.crformula_IS(LIS_params, self.CRp_atGRE[key][key], \
-                                                                      ph.M_DICT[key]).reshape(self.GRdata[i][:,0].shape)]
+                            CRfluxes_theta[key] += [self.crformula_IS(LIS_params, self.CRp_atGRE[key][key][i], \
+                                                    ph.M_DICT[key]).reshape(self.GRdata[i][:,0].shape)]
                             
                     else: #if the bin contains multiple elements
                         
@@ -198,7 +198,8 @@ class Model():
                             weighted_sum += ph.p1_DICT[el]*LIS_params[1]
                             
                             for i in range(len(self.GRdata)):
-                                fluxes[i] += self.crformula_IS(LIS_params, self.CRp_atGRE[key][el], ph.M_DICT[el])
+                                addition = self.crformula_IS(LIS_params, self.CRp_atGRE[key][el][i], ph.M_DICT[el])
+                                fluxes[i] += addition.reshape(self.GRdata[i][:,0].shape)
                         
                         CRfluxes_theta[key] = fluxes
                         CRinds_theta[key] = weighted_sum/self.flux_sum[key]
