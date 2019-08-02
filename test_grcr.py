@@ -29,5 +29,5 @@ fdict={'cr': {cdata: cnames,
        'gr': {gdata: gnames}}
 
 
-grcrfit.run_fit('testrun',fdict,rerun=True,parallel=True, modflags={'pl': 'b', 'enh': 1})
+grcrfit.run_fit('testrun',fdict,nsteps=10,rerun=True,parallel=True, modflags={'pl': 'b', 'enh': 1, 'weights': [.33,.33,.33]})
 

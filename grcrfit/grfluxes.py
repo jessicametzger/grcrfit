@@ -1,6 +1,6 @@
 import numpy as np
-import subprocess
 from scipy import interpolate
+import os
 
 from . import helpers as h
 from . import physics as ph
@@ -11,16 +11,16 @@ gammads = h.open_stdf(path+'/grcrfit/gammads.dat','r')
 gammads = np.array([x.split(',') for x in gammads]).astype(np.float)
 Tps = gammads[1:,0]
 Egs = gammads[0,1:]
-ds = gammads[1:,1:]
+ds = gammads[1:,1:]*Egs/(4*np.pi) #convert to right emissivity units
 
-Pps = E_to_p(Tps, M_DICT['h'])
+Pps = ph.E_to_p(Tps, ph.M_DICT['h'])
 
 interps = [interpolate.interp1d(Egs, ds[i,:], kind='linear', fill_value='extrapolate') for i in range(ds.shape[0])]
 
 # only from p-p interactions; will be enhanced
 def get_fluxes_pp(LIS_params_pp, GRdata, crfunc):
     
-    Jps = crfunc(LIS_params_pp, Pps, M_DICT['h'])*4*np.pi*1e-34 #get proton CR flux, convert units
+    Jps = crfunc(LIS_params_pp, Pps, ph.M_DICT['h'])*4*np.pi*1e-34 #get proton CR flux, convert units
     
     GRfluxes = []
     for i in range(len(GRdata)):

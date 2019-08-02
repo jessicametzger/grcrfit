@@ -14,6 +14,7 @@ class Model():
     
     # modflags is a dictionary. 'pl' key returns power-law type ('s' for single or 'b' for beta), 
     # 'enh' key returns which enhancement framework to use (1 for QGS and 2 for LHC)
+    # 'weights' key returns 3-item list of weights (CR, Voyager, GR); only relative weight matters
     def __init__(self, modflags, data, priors = {'phi': 0, 'vphi': 0}):
         self.modflags = modflags
         self.data = data
@@ -21,6 +22,11 @@ class Model():
         
         # if parallel, these will need to be pickled
         global lnlike, lnprior, lnprob
+        
+        # count number of points for weighting
+        self.nCRpoints=0
+        self.nVRpoints=0
+        self.nGRpoints=0
         
         # Basically, compile all the custom data for MCMC helper functions.
         # - get Usoskin+ reference phi array from data for priors
@@ -35,11 +41,14 @@ class Model():
         self.CRMs=[]
         self.GRexps=[]
         self.GRdata=[]
+        self.VRinds=[]
         for elkey in self.data:
             for expkey in self.data[elkey]:
                 if 'gamma' in elkey.lower():
                     self.GRexps+=[expkey]
                     self.GRdata+=[self.data[elkey][expkey][0]]
+                    
+                    self.nGRpoints+=self.data[elkey][expkey][0].shape[0]
                 else:
                     self.phis+=[self.data[elkey][expkey][2]]
                     self.phierrs+=[self.data[elkey][expkey][3]]
@@ -48,6 +57,12 @@ class Model():
                     self.CRdata+=[self.data[elkey][expkey][0]]
                     self.CRZs+=[ph.Z_DICT[elkey.lower()]]
                     self.CRMs+=[ph.M_DICT[elkey.lower()]]
+                    
+                    if 'voyager1' in expkey.lower() and '2012' in expkey:
+                        self.nVRpoints+=self.data[elkey][expkey][0].shape[0]
+                        self.VRinds+=[len(self.CRdata)-1]
+                    else:
+                        self.nCRpoints+=self.data[elkey][expkey][0].shape[0]
                 
         self.phis=np.array(self.phis).astype(np.float)
         self.phierrs=np.array(self.phierrs).astype(np.float)
@@ -58,6 +73,8 @@ class Model():
         self.GRexps=np.array(self.GRexps)
         
         self.phi_count=self.phis.shape[0]
+        
+        self.npoints = self.nCRpoints + self.nVRpoints + self.nGRpoints
         
         # determine order of the elements' LIS parameters
         self.LISorder=np.unique(self.CRels)
@@ -88,7 +105,7 @@ class Model():
             self.GRdata[i] = np.append(self.GRdata[i], np.array([errs]).transpose(), axis=1)
             
             # change y-axis to emissivity (from emissivity*1e24)
-            self.GRdata[i][:,1] = self.GRdata[i][:,1]*1e-24
+            self.GRdata[i][:,1:] = self.GRdata[i][:,1:]*1e-24
         
         
         # CR FLUXES
@@ -190,12 +207,11 @@ class Model():
             return enf.enh(self.modflags['enh'], enh_fs, self.GRdata, CRfluxes_theta, CRinds_theta)
             
         # get GR fluxes at GR energies
-        # can consider some modflag options here
+        # can also consider some modflag options here
         def grfunc(theta):
             LIS_params_pp = theta[self.phi_count + self.LISparamcount*self.LISdict['h']:\
                                   self.phi_count + self.LISparamcount*(self.LISdict['h']+1)]
-            return grf.get_fluxes_pp(LIS_params_pp, self.GRdata)
-        
+            return grf.get_fluxes_pp(LIS_params_pp, self.GRdata, self.crformula_IS)
         
         # CREATE LNLIKE FUNCTION
         
@@ -205,36 +221,42 @@ class Model():
             cr_fluxes = crfunc(theta)
             
             # compare CR fluxes to data
-            crlike = np.sum(np.array([np.sum(((cr_fluxes[i] - self.CRdata[i][:,1])/self.CRdata[i][:,2])**2.) \
-                                      for i in range(len(cr_fluxes))]))
+            # do Voyager separately for weighting
+            crlike = -.5*np.sum(np.array([np.sum(((cr_fluxes[i] - self.CRdata[i][:,1])/self.CRdata[i][:,2])**2.) \
+                      for i in range(len(cr_fluxes)) if i not in self.VRinds]))*modflags['weights'][0]/self.nCRpoints
+            vrlike = -.5*np.sum(np.array([np.sum(((cr_fluxes[i] - self.CRdata[i][:,1])/self.CRdata[i][:,2])**2.) \
+                      for i in range(len(cr_fluxes)) if i in self.VRinds]))*modflags['weights'][1]/self.nVRpoints
             
             # get enhancement factors
             enh_f = enhfunc(theta)
             
-            # create GR fluxes at gamma data's energies
+            # get p-p GR fluxes at gamma data's energies
             gr_fluxes = grfunc(theta)
             
-            # enhance GR fluxes
+            # enhance p-p GR fluxes
             for i in range(len(self.GRdata)):
                 gr_fluxes[i] = enh_f[i]*gr_fluxes[i] #something like this
             
             # compare GR fluxes to data
-            grlike = np.sum(np.array([np.sum(((gr_fluxes[i] - self.GRdata[i][:,1])/self.GRdata[i][:,2])**2.) \
-                                      for i in range(len(gr_fluxes))]))
+            grlike = -.5*np.sum(np.array([np.sum(((gr_fluxes[i] - self.GRdata[i][:,1])/self.GRdata[i][:,2])**2.) \
+                      for i in range(len(gr_fluxes))]))*modflags['weights'][2]/self.nGRpoints
             
-            return #crlike + grlike
+            # sum up weighted contributions
+            return crlike + vrlike + grlike
         
         # CREATE LNPRIOR FUNCTION
         
         if priors['phi']==0: #priors on phis
             def lp_phi(theta):
-                return np.sum(((theta[0:self.phi_count] - self.phis)/self.phierrs)**2.)
+                lp= -.5*np.sum(((theta[0:self.phi_count] - self.phis)/self.phierrs)**2.)
+                return lp
         elif priors['phi']==1: #free phis
             def lp_phi(theta):
                 return 0
         
         def lnprior(theta):
-            return lp_phi(theta)
+            lp=lp_phi(theta)
+            return lp
         
         # CREATE LNPROB FUNCTION
         
@@ -246,7 +268,7 @@ class Model():
             ll=lnlike(theta)
             if not np.isfinite(ll):
                 return -np.inf
-
+            
             return lp+ll
             
         self.lnlike=lnlike
@@ -255,7 +277,7 @@ class Model():
         
     # default start positions for the MCMC sampler
     def get_startpos(self):
-        startpos=list(self.phis)
+        startpos=list(self.phis + 26.)
         
         for i in range(self.LISorder.shape[0]):
             startpos+=[5e-12, -2.8]
@@ -264,4 +286,17 @@ class Model():
                 startpos+=[1.]
         
         return np.array(startpos)
+        
+    # default start positions for the MCMC sampler
+    def get_paramnames(self):
+        LISparams=['norm','alpha1','alpha2']
+        
+        paramnames=[]
+        for i in range(self.CRexps.shape[0]):
+            paramnames+=[self.CRels[i]+'_'+self.CRexps[i]+'_phi']
+        for i in range(self.LISorder.shape[0]):
+            for j in range(self.LISparamcount):
+                paramnames+=[self.LISorder[i]+'_'+LISparams[j]]
+        
+        return np.array(paramnames)
     
