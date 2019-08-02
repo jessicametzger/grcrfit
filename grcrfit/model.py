@@ -218,29 +218,36 @@ class Model():
         
         def lnlike(theta):
             
+            crlike=0
+            vrlike=0
+            grlike=0
+            
             # create CR fluxes to match all datasets
             cr_fluxes = crfunc(theta)
             
             # compare CR fluxes to data
             # do Voyager separately for weighting
-            crlike = -.5*np.sum(np.array([np.sum(((cr_fluxes[i] - self.CRdata[i][:,1])/self.CRdata[i][:,2])**2.) \
-                      for i in range(len(cr_fluxes)) if i not in self.VRinds]))*modflags['weights'][0]/self.nCRpoints
-            vrlike = -.5*np.sum(np.array([np.sum(((cr_fluxes[i] - self.CRdata[i][:,1])/self.CRdata[i][:,2])**2.) \
-                      for i in range(len(cr_fluxes)) if i in self.VRinds]))*modflags['weights'][1]/self.nVRpoints
+            if self.nCRpoints!=0:
+                crlike = -.5*np.sum(np.array([np.sum(((cr_fluxes[i] - self.CRdata[i][:,1])/self.CRdata[i][:,2])**2.) \
+                          for i in range(len(cr_fluxes)) if i not in self.VRinds]))*modflags['weights'][0]/self.nCRpoints
+            if self.nVRpoints!=0:
+                vrlike = -.5*np.sum(np.array([np.sum(((cr_fluxes[i] - self.CRdata[i][:,1])/self.CRdata[i][:,2])**2.) \
+                          for i in range(len(cr_fluxes)) if i in self.VRinds]))*modflags['weights'][1]/self.nVRpoints
             
             # get enhancement factors
-            enh_f = enhfunc(theta)
-            
-            # get p-p GR fluxes at gamma data's energies
-            gr_fluxes = grfunc(theta)
-            
-            # enhance p-p GR fluxes
-            for i in range(len(self.GRdata)):
-                gr_fluxes[i] = enh_f[i]*gr_fluxes[i] #something like this
-            
-            # compare GR fluxes to data
-            grlike = -.5*np.sum(np.array([np.sum(((gr_fluxes[i] - self.GRdata[i][:,1])/self.GRdata[i][:,2])**2.) \
-                      for i in range(len(gr_fluxes))]))*modflags['weights'][2]/self.nGRpoints
+            if self.nGRpoints!=0:
+                enh_f = enhfunc(theta)
+
+                # get p-p GR fluxes at gamma data's energies
+                gr_fluxes = grfunc(theta)
+
+                # enhance p-p GR fluxes
+                for i in range(len(self.GRdata)):
+                    gr_fluxes[i] = enh_f[i]*gr_fluxes[i] #something like this
+
+                # compare GR fluxes to data
+                grlike = -.5*np.sum(np.array([np.sum(((gr_fluxes[i] - self.GRdata[i][:,1])/self.GRdata[i][:,2])**2.) \
+                          for i in range(len(gr_fluxes))]))*modflags['weights'][2]/self.nGRpoints
             
             # sum up weighted contributions
             return crlike + vrlike + grlike
@@ -278,7 +285,7 @@ class Model():
         
     # default start positions for the MCMC sampler
     def get_startpos(self):
-        startpos=list(self.phis + 26.)
+        startpos=list(self.phis)
         
         for i in range(self.LISorder.shape[0]):
             startpos+=[5e-12, -2.8]
