@@ -48,7 +48,8 @@ class Fitter:
             if self.nwalkers==None or self.nwalkers < self.ndim/2. or self.nwalkers%2 != 0:
                 self.nwalkers = max((self.ndim + 1)*2,100)
                 
-            self.startpos=np.array([self.startpos*(1 + np.random.normal(scale=1e-4)) for x in range(self.nwalkers)])
+            self.startpos=np.array([[self.startpos[i]*(1 + np.random.normal(scale=1e-4)) for i in range(self.startpos.shape[0])]\
+                                    for x in range(self.nwalkers)])
             
         else:
             walkerfile=self.flag+'/walkers.dat'
@@ -192,7 +193,7 @@ class Run:
                         phi_err = 65.
                     
                     # data array, date, phi, phi_err, distance
-                    self.data[el_data[0,0].lower()][exp.lower()] = [entry[:,:-3], entry[0,-1], entry[0,-3], phi_err, entry[0,-2]]
+                    self.data[el_data[0,0].lower()][exp.lower()] = [entry[:,:-3], entry[0,-1], phi, phi_err, entry[0,-2]]
         return
     
     def execute_run(self, nsteps=5000, nwalkers=None, PT=True, ntemps=10, parallel=True):
@@ -256,16 +257,16 @@ class Run:
             start_ind=0
         else:
             start_ind=max(myChain.shape[1]-1000, 0)
-        
-        wf.write('#step, walker, ')
-        for i in range(self.myFitter.pnames.shape[0]):
-            wf.write(self.myFitter.pnames[i]+', ')
+
+            wf.write('#step, walker')
+            for i in range(self.myFitter.pnames.shape[0]):
+                wf.write(', '+self.myFitter.pnames[i])
         
         for i in range(myChain.shape[1]-start_ind): #steps
             for j in range(myChain.shape[0]): #walkers
                 wf.write('\n'+str(i)+', '+str(j))
-                for k in range(myChain.shape[2]):
-                    wf.write(', '+str(myChain[j,i,k]))
+                for k in range(myChain.shape[2]): #dimensions
+                    wf.write(', '+str(myChain[j,i+start_ind,k]))
                 
         wf.close()
 
