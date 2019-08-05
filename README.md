@@ -39,9 +39,9 @@ The "modflags" kwarg of run_fit is a dictionary specifying details of the model.
 
 - "weights" entry: 3-item list of floats, specifying the weights to apply to the cosmic ray, voyager, and gamma ray likelihood values. The log-probability is set as:
 
-    logprob = weighted_loglike + logprior = (weights[0] * CRchisqu/nCRpoints) + (weights[1] * Voyagerchisqu/nVoyagerpoints) + (weights[2] * GRchisqu/nGRpoints) + logprior
+        logprob = weighted_loglike + logprior = (weights[0] * CRchisqu/nCRpoints) + (weights[1] * Voyagerchisqu/nVoyagerpoints) + (weights[2] * GRchisqu/nGRpoints) + logprior
 
-    So, note that the absolute weighting of the CR, VR, and GR contributions does matter, if you aren't using a flat prior. Default is [.33, .33, .33] (equal weights).
+        So, note that the absolute weighting of the CR, VR, and GR contributions does matter, if you aren't using a flat prior. Default is [.33, .33, .33] (equal weights).
 
 - "priors" entry: 0 or 1, specifying whether to apply a gaussian (0) or flat (1) prior to the solar modulation. The Earth-based phi priors are taken from Usoskin +11 (given in the crdb data exports), and the Voyager phi prior is 0+-65 MV. Default is 0 (gaussian priors).
 
@@ -49,9 +49,15 @@ The "modflags" kwarg of run_fit is a dictionary specifying details of the model.
 # citations
 
 CR data: http://lpsc.in2p3.fr/crdb/ & references therein
+
 GR data: https://ui.adsabs.harvard.edu/abs/2015ApJ...806..240C/abstract
+
 Enhancement factors: https://ui.adsabs.harvard.edu/abs/2014ApJ...789..136K/abstract
+
 Electron-bremsstrahlung data: https://ui.adsabs.harvard.edu/abs/2018MNRAS.475.2724O/abstract
+
 Solar modulation values: https://ui.adsabs.harvard.edu/abs/2011JGRA..116.2104U/abstract
+
 Solar modulation model: https://ui.adsabs.harvard.edu/abs/1968ApJ...154.1011G/abstract
+
 Reference LIS values: https://ui.adsabs.harvard.edu/abs/2004PhRvD..70d3008H/abstract
