@@ -1,11 +1,13 @@
+# frequently-used helper functions for file opening, date conversion, etc.
+
 import os
 import sys
 import re
 import numpy as np
 
-# open file, read lines, remove comments
-def open_stdf(fname,flag):
-    f=open(fname,flag)
+# open file, read lines, remove comments, returns as list of lines
+def open_stdf(fname):
+    f=open(fname,'r')
     fdata=f.readlines()
     f.close()
     
@@ -13,7 +15,7 @@ def open_stdf(fname,flag):
     return [x for x in fdata if len(x)>0]
     
 # turn list of strings, each delimited by delimiter d,
-# into np array of strings
+# into np array of strings (as long as ncols is same for each row)
 def lstoarr(datlist,d):
     fdata=[x.split(d) for x in datlist]
     return np.array(fdata)
@@ -21,7 +23,11 @@ def lstoarr(datlist,d):
 
 # DATE CONVERSION
 
+# Y(, M(, D)) list to JD
 def cal_to_JD(date_ls):
+    while len(date_ls)<3:
+        date_ls+=[0]
+        
     Y,M,D=date_ls
     JD=0
     JD+=(1461*(Y + 4800 + (M - 14) // 12)) // 4
@@ -29,6 +35,7 @@ def cal_to_JD(date_ls):
     JD-=((3*((Y + 4900 + (M - 14) // 12) // 100)) // 4 - D + 32075)
     return JD
 
+# JD to Y, M, D list
 def JD_to_cal(JD):
     L= JD+68569
     N= 4*L//146097
@@ -47,12 +54,13 @@ def JD_to_cal(JD):
     
     return [Y, M, D]
 
+# hh(, mm(, ss)) list to fractional days
 def time_to_days(time_ls):
     while len(time_ls)<3:
         time_ls+=[0]
     
     hh, mm, ss = time_ls
-    days = hh/24. + mm/(24*60) + ss/(24*60*60)
+    days = hh/24. + mm/(24.*60) + ss/(24.*60*60)
     return days
 
 # go from USINE-formatted date ranges (yyyy/mm/dd-hhmmss:yyyy/mm/dd-hhmmss;...)

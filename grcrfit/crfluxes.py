@@ -1,3 +1,6 @@
+# functions that generate CR fluxes given LIS parameters, energy values, particle masses/charges,
+#  and sometimes solar modulation
+
 import numpy as np
 
 from . import physics as ph
@@ -13,7 +16,7 @@ def flux_spl(LIS_params, phi, E_TOA, Z, M):
     # figure out which interstellar energies/momenta you'll need
     E_IS=ph.demod_energy(E_TOA, phi, Z)
     p_IS=ph.E_to_p(E_IS, M)
-    if not (np.all(np.isfinite(E_IS)) and np.all(np.isfinite(E_IS))):
+    if not (np.all(np.isfinite(E_IS)) and np.all(np.isfinite(p_IS))):
         return -np.inf
 
     # construct true LIS at the same energies (momenta)
@@ -31,7 +34,7 @@ def flux_bpl(LIS_params, phi, E_TOA, Z, M):
     # figure out which interstellar energies/momenta you'll need
     E_IS=ph.demod_energy(E_TOA, phi, Z)
     p_IS=ph.E_to_p(E_IS, M)
-    if not (np.all(np.isfinite(E_IS)) and np.all(np.isfinite(E_IS))):
+    if not (np.all(np.isfinite(E_IS)) and np.all(np.isfinite(p_IS))):
         return -np.inf
     E_tot=ph.get_Etot(E_IS, M)
     v_IS=p_IS*ph.C_SI/E_tot #units: c (so this is beta)

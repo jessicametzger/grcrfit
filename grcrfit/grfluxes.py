@@ -1,3 +1,12 @@
+# function that interpolates the gammads.dat file to get
+#  the ds/dE contributions of p-p interactions for a range of
+#  Tp (proton energy) values, and desired Eg (gamma energy)
+#  values, and calculates the weighted sum given the proton fluxes
+#  at those Tp values.
+# 
+# gammads.dat file is calculated using the cparamlib package
+#  described in Kamae +06.
+
 import numpy as np
 from scipy import interpolate
 import os
@@ -8,37 +17,43 @@ from . import physics as ph
 # should start in repo directory
 path = os.getcwd()+'/'
 
-# open gamma-ray cross-section contribution table
-gammads = h.open_stdf(path+'data/gammads.dat','r')
-gammads = np.array([x.split(',') for x in gammads]).astype(np.float)
-Tps = gammads[1:,0]
-Egs = gammads[0,1:]
+# open gamma-ray cross-section (ds/dE) contribution table
+gammads = h.lstoarr(h.open_stdf(path+'data/gammads.dat'),',').astype(np.float)
+Tps = gammads[1:,0] # incoming proton energy
+Egs = gammads[0,1:] # outgoing gamma energy
+logEgs = np.log10(Egs)
 ds = gammads[1:,1:]*Egs/(4*np.pi) #convert to right emissivity units
 
+widths=np.empty(Tps.shape)
+for j in range(Tps.shape[0]):
+    widths[j] = Tps[j]*.348; #MeV
+    if (j < 38):
+        widths[j] = 1*widths[j]
+    elif (j == 38):
+        widths[j] = .75*widths[j]
+    elif (j > 38):
+        widths[j] = .5*widths[j]
+
+# proton momenta at Tps
 Pps = ph.E_to_p(Tps, ph.M_DICT['h'])
 
-interps = [interpolate.interp1d(Egs, ds[i,:], kind='linear', fill_value='extrapolate') for i in range(ds.shape[0])]
+# interpolater assumes ~linear relationship between ds/dE and log Eg
+interps = [interpolate.interp1d(logEgs, ds[i,:], kind='linear', fill_value='extrapolate') for i in range(ds.shape[0])]
 
 # only from p-p interactions; will be enhanced
-def get_fluxes_pp(LIS_params_pp, GRdata, crfunc):
+def get_fluxes_pp(LIS_params_pp, GRlogEgs, crfunc):
     
-    Jps = crfunc(LIS_params_pp, Pps, ph.M_DICT['h'])*4*np.pi*1e-34 #get proton CR flux, convert units
+    #get proton CR flux at Tps, cancel out sr^-1, convert area^-1 units to mbarn^-1
+    Jps = crfunc(LIS_params_pp, Pps, ph.M_DICT['h'])*4*np.pi*1e-34
     
     GRfluxes = []
-    for i in range(len(GRdata)):
-        GRfluxes += [np.zeros(GRdata[i][:,0].shape)]
+    for i in range(len(GRlogEgs)):
+        GRfluxes += [np.zeros(GRlogEgs[i].shape)]
         
         for j in range(Tps.shape[0]):
             
-            width = Tps[j]*.348; #MeV
-            if (j < 38):
-                width = 1*width
-            elif (j == 38):
-                width = .75*width
-            elif (j > 38):
-                width = .5*width
-            
             # interpolate at desired GR energies for the current Tp
-            GRfluxes[i] += interps[j](GRdata[i][:,0])*Jps[j]*width
+            # weight by proton flux at current Tp, dTp (bin width)
+            GRfluxes[i] += interps[j](GRlogEgs[i])*Jps[j]*widths[j]
     
     return GRfluxes

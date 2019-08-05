@@ -1,14 +1,16 @@
+# the main functions that will be run by the user
+
 from .run import Run, Fitter
 
-# creates a Run object & executes the fit
-def run_fit(flag, fdict, nsteps=5000, nwalkers=None, rerun=False, PT=True, ntemps=10, parallel=True,
+# creates a Run object, executes it, & logs output
+def run_fit(flag, fdict, nsteps=5000, nwalkers=None, rerun=False, PT=True, ntemps=10, processes=None,
         priors=None, modflags={'pl': 's', 'enh': 0, 'weights': [.33,.33,.33]}):
     
     # initialize run
     myRun=Run(flag, fdict, rerun=rerun, priors=priors, modflags=modflags)
     
     # execute run
-    myRun.execute_run(nsteps=nsteps, nwalkers=nwalkers, PT=PT, ntemps=ntemps, parallel=parallel)
+    myRun.execute_run(nsteps=nsteps, nwalkers=nwalkers, PT=PT, ntemps=ntemps, processes=processes)
     
     # create the output files
     if not rerun:

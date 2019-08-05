@@ -1,6 +1,6 @@
-import numpy as np
 import os
 import grcrfit
+from multiprocessing import Pool
 
 path = os.getcwd()+'/'
 
@@ -20,12 +20,14 @@ henames=['AMS01(1998/06)', 'AMS02(2011/05-2013/11)', 'BESS-TeV(2002/08)',
          'Voyager1(2012/10-2012/12)']
 cnames=['PAMELA(2006/07-2008/03)', 'ACE-CRIS(1998/01-1999/01)', 
         'ACE-CRIS(2001/05-2003/09)', 'ACE-CRIS(1997/08-1998/04)',
-        'Voyager1(2012/09-2012/12)']
+        'Voyager1(2012/09-2012/12)', 'HEAO3-C2(1979/10-1980/06)']
 nnames=['HEAO3-C2(1979/10-1980/06)', 'ACE-CRIS(1997/08-1998/04)', 
-        'ACE-CRIS(2001/05-2003/09)', 'ACE-CRIS(2009/03-2010/01)']
+        'ACE-CRIS(2001/05-2003/09)', 'ACE-CRIS(2009/03-2010/01)',
+        'IMP5(1969/06-1970/06)', 'IMP7(1973/05-1973/12)']
 onames=['HEAO3-C2(1979/10-1980/06)', 'ACE-CRIS(1997/08-1998/04)', 
         'ACE-CRIS(2001/05-2003/09)', 'ACE-CRIS(2009/03-2010/01)',
-        'Voyager1(2012/09-2012/12)']
+        'Voyager1(2012/09-2012/12)', 'IMP5(1969/06-1970/06)',
+        'IMP7(1973/05-1973/12)']
 gnames=['FERMI-LAT_LOCAL_HI']
 
 # create dictionary identifying which data to use
@@ -36,6 +38,6 @@ fdict={'cr': {hdata: hnames,
               odata: onames},
        'gr': {gdata: gnames}}
 
-grcrfit.run_fit('test_bpl',fdict,nsteps=800,rerun=True,parallel=True,
+grcrfit.run_fit('test_bpl',fdict,nsteps=10000,rerun=False,parallel=Pool(4),
                 modflags={'pl': 'b', 'enh': 0, 'weights': [.33,.33,.33]})
 
