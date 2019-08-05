@@ -39,9 +39,9 @@ The "modflags" kwarg of run_fit is a dictionary specifying details of the model.
 
 - "weights" entry: 3-item list of floats, specifying the weights to apply to the cosmic ray, voyager, and gamma ray likelihood values. The log-probability is set as:
 
-logprob = weighted_loglike + logprior = (weights[0] * CRchisqu/nCRpoints) + (weights[1] * Voyagerchisqu/nVoyagerpoints) + (weights[2] * GRchisqu/nGRpoints) + logprior
+    logprob = weighted_loglike + logprior = (weights[0] * CRchisqu/nCRpoints) + (weights[1] * Voyagerchisqu/nVoyagerpoints) + (weights[2] * GRchisqu/nGRpoints) + logprior
 
-So, note that the absolute weighting of the CR, VR, and GR contributions does matter, if you aren't using a flat prior. Default is [.33, .33, .33] (equal weights).
+    So, note that the absolute weighting of the CR, VR, and GR contributions does matter, if you aren't using a flat prior. Default is [.33, .33, .33] (equal weights).
 
 - "priors" entry: 0 or 1, specifying whether to apply a gaussian (0) or flat (1) prior to the solar modulation. The Earth-based phi priors are taken from Usoskin +11 (given in the crdb data exports), and the Voyager phi prior is 0+-65 MV. Default is 0 (gaussian priors).
 
