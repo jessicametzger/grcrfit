@@ -54,7 +54,7 @@ def walker_plot(flag,cutoff=0):
     # plot
     for i in range(data.shape[-1]):
         for j in range(data.shape[0]):
-            plt.plot(range(data[j,:,i].shape[0]),data[j,:,i],lw=.2)
+            plt.plot(range(data[j,:,i].shape[0]),data[j,:,i],ls='',marker=',',ms=.1)
         plt.title(names[i])
         plt.savefig(path+flag+'/param'+str(i)+'_walkers.png')
         plt.clf()
@@ -140,10 +140,10 @@ def bestfit_plot(flag, cutoff=0):
         x_axis=myModel.CRdata[i][:,0]
         
         plt.plot(x_axis*1e-3/ph.M_DICT[myModel.CRels[i].lower()], 
-                 crfluxes[i]*(x_axis**2.), color='blue', label='model',ls='--',marker='o')
+                 crfluxes[i]*(x_axis**2.), color='blue', label='model',ls='',marker='o',ms=4)
         plt.errorbar(x_axis*1e-3/ph.M_DICT[myModel.CRels[i].lower()], 
                      myModel.CRdata[i][:,1]*(x_axis**2.), yerr=myModel.CRdata[i][:,2]*(x_axis**2.),\
-                     color='black', label='data',marker='o',ls='')
+                     color='black', label='data',marker='o',ls='',ms=4,zorder=3)
         plt.title(myModel.CRels[i]+'_'+myModel.CRexps[i])
         plt.xlabel('E [GeV/n]')
         plt.ylabel('flux * E$^2$')
@@ -159,11 +159,11 @@ def bestfit_plot(flag, cutoff=0):
     for i in range(len(grfluxes)):
         x_axis=myModel.GRdata[i][:,0]
         
-        plt.plot(x_axis*1e-3, enh_f[i]*grfluxes_pp[i], color='red', label='model_CR',ls='--',marker='o')
-        plt.plot(x_axis*1e-3, ebrfluxes[i], color='green', label='model_ebr',ls='--',marker='o')
-        plt.plot(x_axis*1e-3, grfluxes[i], color='blue', label='model',ls='--',marker='o')
+        plt.plot(x_axis*1e-3, enh_f[i]*grfluxes_pp[i], color='red', label='model_CR',ls='',marker='o',ms=4)
+        plt.plot(x_axis*1e-3, ebrfluxes[i], color='green', label='model_ebr',ls='',marker='o',ms=4)
+        plt.plot(x_axis*1e-3, grfluxes[i], color='blue', label='model',ls='',marker='o',ms=4)
         plt.errorbar(x_axis*1e-3, myModel.GRdata[i][:,1], yerr=myModel.GRdata[i][:,2],\
-                     color='black', label='data',marker='o',ls='')
+                     color='black', label='data',marker='o',ls='',ms=4,zorder=3)
         plt.title('gamma_'+myModel.GRexps[i])
         plt.xlabel('E [GeV]')
         plt.ylabel('emissivity')
@@ -180,7 +180,7 @@ def bestfit_plot(flag, cutoff=0):
     for i in range(len(grfluxes)):
         x_axis=myModel.GRdata[i][:,0]
         
-        plt.plot(x_axis*1e-3, enh_f[i], ls='--',marker='o')
+        plt.plot(x_axis*1e-3, enh_f[i], ls='--',marker='o',ms=4)
         plt.title('gamma_'+myModel.GRexps[i]+'_enhancement')
         plt.xlabel('E [GeV]')
         plt.ylabel('enhancement')

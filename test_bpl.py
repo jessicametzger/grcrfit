@@ -1,16 +1,9 @@
 import os
 import grcrfit
-<<<<<<< HEAD
 
 path = os.getcwd()+'/'
 
 # create USINE database filenames
-=======
-from multiprocessing import Pool
-
-path = os.getcwd()+'/'
-
->>>>>>> 074e0783cc75fece8a1e19fe5bb1709680df66c8
 hdata=path+'data/hdatabase.USINE'
 hedata=path+'data/hedatabase.USINE'
 cdata=path+'data/cdatabase.USINE'
@@ -18,10 +11,7 @@ ndata=path+'data/ndatabase.USINE'
 odata=path+'data/odatabase.USINE'
 gdata=path+'data/gammadatabase.USINE'
 
-<<<<<<< HEAD
 # create lists of experiment names for each element
-=======
->>>>>>> 074e0783cc75fece8a1e19fe5bb1709680df66c8
 hnames=['AMS01(1998/06)', 'AMS02(2011/05-2013/11)', 'BESS-TeV(2002/08)',
         'BESS-PolarI(2004/12)', 'BESS-PolarII(2007/12-2008/01)', 
         'PAMELA(2006/07-2006/07)', 'PAMELA(2008/03-2008/04)', 'PAMELA(2010/01-2010/01)',
@@ -49,17 +39,15 @@ fdict={'cr': {hdata: hnames,
               odata: onames},
        'gr': {gdata: gnames}}
 
-<<<<<<< HEAD
-grcrfit.run_fit('test_bpl',fdict,nsteps=5000,rerun=False,processes=3,
-                modflags={'pl': 'b', 'enh': 0, 'weights': [1, .3, 1], 'priors': 0})
+# grcrfit.run_fit('test_bpl',fdict,nsteps=5000,rerun=False,processes=3,
+#                 modflags={'pl': 'b', 'enh': 0, 'weights': [1, .3, 1], 'priors': 0})
 
-# plot the last 1000 walkers
-grcrfit.walker_plot('test_spl',cutoff=-100000)
+# # plot the last 1000 walkers
+# grcrfit.walker_plot('test_bpl',cutoff=-100000)
 
-# create corner plots
-grcrfit.corner_plot('test_spl',cutoff=-100000)
-=======
-grcrfit.run_fit('test_bpl',fdict,nsteps=10000,rerun=False,parallel=Pool(4),
-                modflags={'pl': 'b', 'enh': 0, 'weights': [.33,.33,.33]})
->>>>>>> 074e0783cc75fece8a1e19fe5bb1709680df66c8
+# # create corner plots
+# grcrfit.corner_plot('test_bpl',cutoff=-100000)
+
+# create CR plots
+grcrfit.bestfit_plot('test_bpl',cutoff=-100000)
 
