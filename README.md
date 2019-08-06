@@ -46,6 +46,11 @@ The "modflags" kwarg of run_fit is a dictionary specifying details of the model.
 - "priors" entry: 0 or 1, specifying whether to apply a gaussian (0) or flat (1) prior to the solar modulation. The Earth-based phi priors are taken from Usoskin +11 (given in the crdb data exports), and the Voyager phi prior is 0+-65 MV. Default is 0 (gaussian priors).
 
 
+# Results
+
+After running a fit, you can use the methods in analysis.py to interpret and create plots of the results. The method walker_plot() creates plots of the last N steps (N specified by the user, or default all). The method corner_plot() creates corner plots of all solar modulation parameters together with the LIS parameter of the same respective element. The user can again provide a cutoff to only count the last N steps. The bestfit_plot() method plots the best-fit models with the data (cosmic ray and gamma ray), again allowing the user to specify a cutoff. It also creates a plot of the best-fit enhancement factors. You can see how these are run in test_spl.py and test_bpl.py. The resulting plots are included in their respective folders (however, the walkers.dat file has been excluded from github since it is too large).
+
+
 # Citations
 
 CR data: http://lpsc.in2p3.fr/crdb/ & references therein

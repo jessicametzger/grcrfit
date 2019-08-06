@@ -63,11 +63,11 @@ abund_rats=np.array([1,0.096,1.38e-3,2.11e-4,3.25e-5])
 # CRfluxes is dict of 5 lists (length=len(GRdata)) of flux arrs at GRdata energies
 # CRinds is dict of 5 alphas (positive)
 # CRfluxes/inds keys are same as enh_els
-def enh(enhtype, enh_fs, GRdata, CRfluxes, CRinds):
+def enh(enhtype, enh_fs, GREs, CRfluxes, CRinds):
     intplr=interps[enhtype]
     
-    for k in range(len(GRdata)):
-        E=np.copy(GRdata[k][:,0])
+    for k in range(len(GREs)):
+        E=np.copy(GREs[k])
         logE = np.log10(E)
         
         for i in range(len(enh_els_ls)): #loop over projectile species

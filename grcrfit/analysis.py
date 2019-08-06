@@ -4,10 +4,12 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 import corner
+import re
 
 from . import run
 from . import model
 from . import physics as ph
+from . import enhs as enf
 
 path = os.getcwd()+'/'
 
@@ -55,7 +57,7 @@ def walker_plot(flag,cutoff=0):
     for i in range(data.shape[-1]):
         for j in range(data.shape[0]):
             plt.plot(range(data[j,:,i].shape[0]),data[j,:,i],ls='',marker=',',ms=.1)
-        plt.title(names[i])
+        plt.title(names[i].replace('_',', ').upper())
         plt.savefig(path+flag+'/param'+str(i)+'_walkers.png')
         plt.clf()
     
@@ -85,6 +87,7 @@ def corner_plot(flag, cutoff=0):
         plot_data[:,0] = plot_data[:,0]*1e9
         plot_labels = np.copy(names[current_inds])
         plot_labels[0] = plot_labels[0]+'*1e9'
+        plot_labels = [re.sub(r'\(.+?\)', '', plot_labels[i]) for i in range(plot_labels.shape[0])]
 
         corner.corner(plot_data, labels=plot_labels, show_titles=True, quantiles=[.16,.5,.84])
         plt.savefig(path+flag+'/param'+str(i)+'_corner.png')
@@ -107,6 +110,7 @@ def get_model(flag):
 
 # plot all data w/best-fit models (CR, GR, enhancement)
 # saves plots in the run's directory (given by its flag)
+# also output chi squared
 def bestfit_plot(flag, cutoff=0):
     
     # get walker data for best-fit params
@@ -116,11 +120,87 @@ def bestfit_plot(flag, cutoff=0):
     
     # reconstruct model
     myModel = get_model(flag)
-    crfluxes = myModel.crfunc(params)
+    
+    
+    # Get fluxes at data energies
+    # for chi squared calculation
+    
+    # CR
+    crfluxes_d = myModel.crfunc(params)
     
     # get enhancement factors
-    enh_f = myModel.enhfunc(params)
+    enh_f_d = myModel.enhfunc(params)
     
+    if len(myModel.GRdata)!=0:
+
+        # get p-p GR fluxes at gamma data's energies
+        grfluxes_pp_d = myModel.grfunc_pp(params)
+        grfluxes_d = [np.copy(x) for x in grfluxes_pp_d.copy()]
+        
+        # get e-bremss. fluxes
+        ebrfluxes_d = myModel.ebrfunc()
+
+        # enhance p-p GR fluxes & add e-bremss data
+        for i in range(len(myModel.GRdata)):
+            grfluxes_d[i] = enh_f_d[i]*grfluxes_pp_d[i] + ebrfluxes_d[i]
+    
+    
+    # calculate chi squared
+    cr_chisqu=[]
+    cr_chisqu_r=[]
+    for i in range(len(myModel.CRdata)):
+        cr_chisqu += [np.sum(((crfluxes_d[i] - myModel.CRdata[i][:,1])/myModel.CRdata[i][:,2])**2.)]
+        
+        # each dataset, considered independently, has ~nLISparams + 1 free params (nLISparams + solar modulation)
+        cr_chisqu_r += [np.sum(((crfluxes_d[i] - myModel.CRdata[i][:,1])/myModel.CRdata[i][:,2])**2.)/
+                        max(myModel.CRdata[i].shape[0]-myModel.nLISparams-2,1)]
+    
+    gr_chisqu=[]
+    gr_chisqu_r=[]
+    for i in range(len(myModel.GRdata)):
+        gr_chisqu += [np.sum(((grfluxes_d[i] - myModel.GRdata[i][:,1])/myModel.GRdata[i][:,2])**2.)]
+        
+        # gamma ray data, considered independently, has ~nLISparams free params
+        gr_chisqu_r += [np.sum(((grfluxes_d[i] - myModel.GRdata[i][:,1])/myModel.GRdata[i][:,2])**2.)/
+                        max(myModel.GRdata[i].shape[0]-myModel.nLISparams-1,1)]
+    
+    total_chisqu=np.sum(np.array(cr_chisqu)) + np.sum(np.array(cr_chisqu))
+    total_chisqu_r=total_chisqu/(myModel.nCRpoints + myModel.nVRpoints + myModel.nGRpoints \
+                                 - myModel.phis.shape[0] - myModel.nLISparams*myModel.CRels.shape[0] - 1)
+    print("total chisqu: ",total_chisqu)
+    print("total reduced chisqu: ",total_chisqu_r)
+    
+    # --------------------------------------------------------------------------------------------------------------
+    # make x-axis finer for plotting
+    # have to re-create lots of the variables - should be neater way to do this
+    # this is all directly from model.py
+    for i in range(len(myModel.CREs)):
+        myModel.CREs[i] = np.logspace(np.log10(np.amin(myModel.CREs[i])), np.log10(np.amax(myModel.CREs[i])), num=100)
+    for i in range(len(myModel.GREs)):
+        myModel.GREs[i] = np.logspace(np.log10(np.amin(myModel.GREs[i])), np.log10(np.amax(myModel.GREs[i])), num=100)
+    myModel.CRp_atGRE = {}
+    for key in enf.enh_els:
+        myModel.CRp_atGRE[key]={}
+        for subkey in enf.enh_els[key]:
+            current_el=[]
+            for j in range(len(myModel.GREs)):
+                # should the extra *ph.M_DICT[subkey] be here??
+                current_el+=[ph.E_to_p(myModel.GREs[i]*ph.M_DICT[subkey], ph.M_DICT[subkey])]
+            myModel.CRp_atGRE[key][subkey] = current_el
+    myModel.CRfluxes={'h': None, 'he': None, 'cno': None, 'mgsi': None, 'fe': None}
+    for key in enf.enh_els_ls:
+        if not all(x in myModel.fit_els for x in enf.enh_els[key]):
+            myModel.CRfluxes[key] = []
+            for i in range(len(myModel.GREs)):
+                myModel.CRfluxes[key] += [enf.Honda_LIS(enf.LIS_params[key], myModel.GREs[i])]
+    myModel.empty_fluxes=[np.zeros(myModel.GREs[i].shape) for i in range(len(myModel.GREs))]
+    myModel.GRlogEgs=[np.log10(myModel.GREs[i]) for i in range(len(myModel.GREs))]
+    myModel.ebr_fluxes = myModel.ebrfunc()
+    # --------------------------------------------------------------------------------------------------------------
+    
+    # get new, finer lists of model values
+    crfluxes = myModel.crfunc(params)
+    enh_f = myModel.enhfunc(params)
     if len(myModel.GRdata)!=0:
 
         # get p-p GR fluxes at gamma data's energies
@@ -136,17 +216,23 @@ def bestfit_plot(flag, cutoff=0):
             
     
     # CR PLOTS
-    for i in range(len(crfluxes)):
+    for i in range(len(crfluxes_d)):
         x_axis=myModel.CRdata[i][:,0]
         
-        plt.plot(x_axis*1e-3/ph.M_DICT[myModel.CRels[i].lower()], 
-                 crfluxes[i]*(x_axis**2.), color='blue', label='model',ls='',marker='o',ms=4)
+        plt.plot(myModel.CREs[i]*1e-3/ph.M_DICT[myModel.CRels[i].lower()], 
+                 crfluxes[i]*(myModel.CREs[i]**2.), color='blue', 
+                 label=r'model, $\frac{\chi^2}{\nu}$ = '+str(round(cr_chisqu_r[i],2)),lw=1)
         plt.errorbar(x_axis*1e-3/ph.M_DICT[myModel.CRels[i].lower()], 
                      myModel.CRdata[i][:,1]*(x_axis**2.), yerr=myModel.CRdata[i][:,2]*(x_axis**2.),\
-                     color='black', label='data',marker='o',ls='',ms=4,zorder=3)
-        plt.title(myModel.CRels[i]+'_'+myModel.CRexps[i])
+                     color='black', label=r'data',marker='o',ls='',ms=4,zorder=3)
+        
+        proper_name=myModel.CRels[i].upper()
+        if len(proper_name)>1:
+            proper_name=proper_name[0] + proper_name[1:].lower()
+        
+        plt.title(proper_name+', '+myModel.CRexps[i].upper().replace('_',' '))
         plt.xlabel('E [GeV/n]')
-        plt.ylabel('flux * E$^2$')
+        plt.ylabel('(flux) '+r' (E$^2$)')
         plt.xscale('log')
         plt.yscale('log')
         plt.grid()
@@ -156,15 +242,17 @@ def bestfit_plot(flag, cutoff=0):
         plt.close()
     
     # GR PLOTS
-    for i in range(len(grfluxes)):
+    for i in range(len(grfluxes_d)):
         x_axis=myModel.GRdata[i][:,0]
         
-        plt.plot(x_axis*1e-3, enh_f[i]*grfluxes_pp[i], color='red', label='model_CR',ls='',marker='o',ms=4)
-        plt.plot(x_axis*1e-3, ebrfluxes[i], color='green', label='model_ebr',ls='',marker='o',ms=4)
-        plt.plot(x_axis*1e-3, grfluxes[i], color='blue', label='model',ls='',marker='o',ms=4)
+        plt.plot(myModel.GREs[i]*1e-3, enh_f[i]*grfluxes_pp[i], color='red', label=r'model, CR',lw=1)
+        plt.plot(myModel.GREs[i]*1e-3, ebrfluxes[i], color='green', label=r'model, e-br',lw=1)
+        plt.plot(myModel.GREs[i]*1e-3, grfluxes[i], color='blue', 
+                 label=r'model, $\frac{\chi^2}{\nu}$ = '+str(round(gr_chisqu_r[i],2)),lw=1)
         plt.errorbar(x_axis*1e-3, myModel.GRdata[i][:,1], yerr=myModel.GRdata[i][:,2],\
-                     color='black', label='data',marker='o',ls='',ms=4,zorder=3)
-        plt.title('gamma_'+myModel.GRexps[i])
+                     color='black', label=r'data',marker='o',ls='',ms=4,zorder=3)
+        
+        plt.title(myModel.GRexps[i].upper().replace('_',' '))
         plt.xlabel('E [GeV]')
         plt.ylabel('emissivity')
         plt.xscale('log')
@@ -178,12 +266,12 @@ def bestfit_plot(flag, cutoff=0):
         
     # ENH_F PLOTS
     for i in range(len(grfluxes)):
-        x_axis=myModel.GRdata[i][:,0]
+        x_axis=myModel.GREs[i]
         
-        plt.plot(x_axis*1e-3, enh_f[i], ls='--',marker='o',ms=4)
-        plt.title('gamma_'+myModel.GRexps[i]+'_enhancement')
+        plt.plot(x_axis*1e-3, enh_f[i],lw=1)
+        plt.title('$\t{'+myModel.GRexps[i].upper().replace('_',' ')+', Enhancement}$')
         plt.xlabel('E [GeV]')
-        plt.ylabel('enhancement')
+        plt.ylabel('enhancement factor')
         plt.xscale('log')
         plt.grid()
         plt.savefig(path+flag+'/exp'+str(i)+'_enh.png')

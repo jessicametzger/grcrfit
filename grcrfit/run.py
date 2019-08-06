@@ -182,7 +182,7 @@ class Fitter:
             
             self.startpos=walkers
             
-        self.pnames = myModel.get_paramnames()
+        self.pnames = self.myModel.get_paramnames()
         
         # if parallel or not
         if processes in [None,1]:
@@ -251,6 +251,11 @@ class Run:
             old_metadata = get_metadata(self.metadata['flag'])
             for key in old_metadata:
                 self.metadata[key] = old_metadata[key]
+            self.metadata['rerun']=True
+        else:
+            self.metadata['fdict'] = fdict
+            self.metadata['nwalkers'] = nwalkers
+            self.metadata['modflags'] = modflags
         
         self.data = get_data(self.metadata['fdict'])
 
@@ -339,7 +344,7 @@ class Run:
             wf.write(', '+self.myFitter.pnames[i])
         
         # write walker positions
-        for i in range(myChain.shape[1]-start_ind): #steps
+        for i in range(int(myChain.shape[1]-start_ind)): #steps
             for j in range(myChain.shape[0]): #walkers
                 wf.write('\n'+str(i)+', '+str(j))
                 for k in range(myChain.shape[2]): #dimensions

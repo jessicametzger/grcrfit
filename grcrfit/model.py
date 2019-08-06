@@ -139,6 +139,29 @@ class Model():
             # change y-axis from emissivity*1e24 to emissivity
             self.GRdata[i][:,1:] = self.GRdata[i][:,1:]*1e-24
         
+        # data energies for comparison - can edit this variable if want cr fluxes at other energies
+        self.CREs = []
+        for i in range(len(self.CRdata)):
+            self.CREs += [self.CRdata[i][:,0]]
+        
+        # data energies for comparison - can edit this variable if want gr fluxes at other energies
+        self.GREs = []
+        for i in range(len(self.GRdata)):
+            self.GREs += [self.GRdata[i][:,0]]
+        
+        # CR momenta at GR energies (for enhancement calculation)
+        # shape: 5-item dict (corresponding to 5 categories of elements for enh routine), 
+        # each containing a dict which gives GRdata-shaped list at each entry corresponding to that element
+        self.CRp_atGRE = {}
+        for key in enf.enh_els:
+            self.CRp_atGRE[key]={}
+            for subkey in enf.enh_els[key]:
+                current_el=[]
+                for j in range(len(self.GREs)):
+                    # should the extra *ph.M_DICT[subkey] be here??
+                    current_el+=[ph.E_to_p(self.GREs[i]*ph.M_DICT[subkey], ph.M_DICT[subkey])]
+                self.CRp_atGRE[key][subkey] = current_el
+        
         
         # HELPER FUNCTIONS FOR LNLIKE
         # (initialize before since they only have to be initialized once)
@@ -161,24 +184,11 @@ class Model():
                 # use that element's LIS parameters, and that experiment's phi, to get CR flux
                 LIS_params=theta[self.nphis + self.LISdict[self.CRels[i]]*self.nLISparams:\
                                  self.nphis + (self.LISdict[self.CRels[i]] + 1)*self.nLISparams]
-                crflux_ls+=[self.crformula(LIS_params, theta[i], self.CRdata[i][:,0], self.CRZs[i], self.CRMs[i])]
+                crflux_ls+=[self.crformula(LIS_params, theta[i], self.CREs[i], self.CRZs[i], self.CRMs[i])]
             return crflux_ls
         
         
         # ENHANCEMENT FACTOR
-        
-        # CR momenta at GR energies (for enhancement calculation)
-        # shape: 5-item dict (corresponding to 5 categories of elements for enh routine), 
-        # each containing a dict which gives GRdata-shaped list at each entry corresponding to that element
-        self.CRp_atGRE = {}
-        for key in enf.enh_els:
-            self.CRp_atGRE[key]={}
-            for subkey in enf.enh_els[key]:
-                current_el=[]
-                for j in range(len(self.GRdata)):
-                    # should the extra *ph.M_DICT[subkey] be here??
-                    current_el+=[ph.E_to_p(self.GRdata[j][:,0]*ph.M_DICT[subkey], ph.M_DICT[subkey])]
-                self.CRp_atGRE[key][subkey] = current_el
             
         # compile old LIS fluxes, inds (if not included in model) for enhancement factor calculation
         self.CRfluxes={'h': None, 'he': None, 'cno': None, 'mgsi': None, 'fe': None}
@@ -195,10 +205,10 @@ class Model():
                 # add old fluxes
                 self.CRfluxes[key] = []
                 for i in range(len(self.GRdata)):
-                    self.CRfluxes[key] += [enf.Honda_LIS(enf.LIS_params[key], self.GRdata[i][:,0])]
+                    self.CRfluxes[key] += [enf.Honda_LIS(enf.LIS_params[key], self.GREs[i])]
         
         # empty flux array (same shame as in GRdata)
-        self.empty_fluxes=[np.zeros(self.GRdata[i][:,0].shape) for i in range(len(self.GRdata))]
+        self.empty_fluxes=[np.zeros(self.GREs[i].shape) for i in range(len(self.GREs))]
         
         # get enhancement factor at GR energies
         def enhfunc(theta):
@@ -220,7 +230,7 @@ class Model():
                         CRfluxes_theta[key] = []
                         for i in range(len(self.GRdata)):
                             CRfluxes_theta[key] += [self.crformula_IS(LIS_params, self.CRp_atGRE[key][key][i], \
-                                                    ph.M_DICT[key]).reshape(self.GRdata[i][:,0].shape)]
+                                                    ph.M_DICT[key]).reshape(self.GREs[i].shape)]
                             
                     else: #if the bin contains multiple elements
                         
@@ -235,20 +245,20 @@ class Model():
                             weighted_sum += (-LIS_params[1]*flux_1GeV) #enhancement factors given w.r.t. positive spectral ind.
                             flux_sum += flux_1GeV
                             
-                            for i in range(len(self.GRdata)):
+                            for i in range(len(self.GREs)):
                                 addition = self.crformula_IS(LIS_params, self.CRp_atGRE[key][el][i], ph.M_DICT[el])
-                                fluxes[i] += addition.reshape(self.GRdata[i][:,0].shape)
+                                fluxes[i] += addition.reshape(self.GREs[i].shape)
                         
                         CRfluxes_theta[key] = fluxes
                         CRinds_theta[key] = weighted_sum/flux_sum
             
             enh_fs = [np.copy(x) for x in self.empty_fluxes]
-            enh_fs = enf.enh(self.modflags['enh'], enh_fs, self.GRdata, CRfluxes_theta, CRinds_theta)
+            enh_fs = enf.enh(self.modflags['enh'], enh_fs, self.GREs, CRfluxes_theta, CRinds_theta)
             return enh_fs
             
         # get GR fluxes at log10 of GR energies
         # can also consider some modflag options here
-        self.GRlogEgs=[np.log10(self.GRdata[i][:,0]) for i in range(len(self.GRdata))]
+        self.GRlogEgs=[np.log10(self.GREs[i]) for i in range(len(self.GREs))]
         def grfunc_pp(theta):
             LIS_params_pp = theta[self.nphis + self.nLISparams*self.LISdict['h']:\
                                   self.nphis + self.nLISparams*(self.LISdict['h']+1)]
