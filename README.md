@@ -23,7 +23,7 @@ Python 3 & everything that comes with it, numpy, emcee, tqdm, scipy.
 
 Runs are performed as demonstrated in test_spl.py and test_bpl.py. Typically, the user will work in the grcrfit package directory and will execute in Python:
 
-import grcrfit
+import grcrfit<br>
 grcrfit.run_fit("flag", filedict, kwargs=...)
 
 where "flag" (str) is the name of the run, filedict is a dictionary of .USINE data files & sub-experiments to use, and kwargs specify details of the run (see below, along with run.py and model.py, for more information). "flag" must contain no slashes, etc. as it will be the name of the run's directory and will be appended to all output file names. In filedict, each keyword must be a database's full file path and the corresponding entry must be the list of sub-experiments to include for that database (from the second column of the .USINE file). Each cosmic ray species must have its own .USINE database. Gamma ray data must also be in .USINE format, for convenience. In grcrfit/data/data_conversion/, there is a script (dat_to_usine.py) that can be modified to convert data files to .USINE format.
