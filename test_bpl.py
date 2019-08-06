@@ -39,8 +39,8 @@ fdict={'cr': {hdata: hnames,
               odata: onames},
        'gr': {gdata: gnames}}
 
-grcrfit.run_fit('test_bpl',fdict,nsteps=1500,rerun=True,processes=3,
-                modflags={'pl': 'b', 'enh': 0, 'weights': [1, .3, 1], 'priors': 0})
+# grcrfit.run_fit('test_bpl',fdict,nsteps=1500,rerun=True,processes=3,
+#                 modflags={'pl': 'b', 'enh': 0, 'weights': [1, .3, 1], 'priors': 0})
 
 # plot the last 1000 walkers
 grcrfit.walker_plot('test_bpl',cutoff=-100000)

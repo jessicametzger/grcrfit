@@ -164,9 +164,15 @@ def bestfit_plot(flag, cutoff=0):
         gr_chisqu_r += [np.sum(((grfluxes_d[i] - myModel.GRdata[i][:,1])/myModel.GRdata[i][:,2])**2.)/
                         max(myModel.GRdata[i].shape[0]-myModel.nLISparams-1,1)]
     
-    total_chisqu=np.sum(np.array(cr_chisqu)) + np.sum(np.array(cr_chisqu))
-    total_chisqu_r=total_chisqu/(myModel.nCRpoints + myModel.nVRpoints + myModel.nGRpoints \
-                                 - myModel.phis.shape[0] - myModel.nLISparams*myModel.CRels.shape[0] - 1)
+    cr_chisqu=np.array(cr_chisqu)
+    gr_chisqu=np.array(gr_chisqu)
+    
+    
+    total_chisqu=np.sum(cr_chisqu) + np.sum(gr_chisqu)
+    dof=myModel.nCRpoints + myModel.nVRpoints + myModel.nGRpoints \
+                                 - myModel.phis.shape[0] - myModel.nLISparams*myModel.CRels.shape[0] - 1
+    total_chisqu_r=total_chisqu/dof
+    
     print("total chisqu: ",total_chisqu)
     print("total reduced chisqu: ",total_chisqu_r)
     
@@ -221,7 +227,7 @@ def bestfit_plot(flag, cutoff=0):
         
         plt.plot(myModel.CREs[i]*1e-3/ph.M_DICT[myModel.CRels[i].lower()], 
                  crfluxes[i]*(myModel.CREs[i]**2.), color='blue', 
-                 label=r'model, $\frac{\chi^2}{\nu}$ = '+str(round(cr_chisqu_r[i],2)),lw=1)
+                 label=r'model, $\chi^2$ = '+str(round(cr_chisqu[i],2)),lw=1)
         plt.errorbar(x_axis*1e-3/ph.M_DICT[myModel.CRels[i].lower()], 
                      myModel.CRdata[i][:,1]*(x_axis**2.), yerr=myModel.CRdata[i][:,2]*(x_axis**2.),\
                      color='black', label=r'data',marker='o',ls='',ms=4,zorder=3)
@@ -248,7 +254,7 @@ def bestfit_plot(flag, cutoff=0):
         plt.plot(myModel.GREs[i]*1e-3, enh_f[i]*grfluxes_pp[i], color='red', label=r'model, CR',lw=1)
         plt.plot(myModel.GREs[i]*1e-3, ebrfluxes[i], color='green', label=r'model, e-br',lw=1)
         plt.plot(myModel.GREs[i]*1e-3, grfluxes[i], color='blue', 
-                 label=r'model, $\frac{\chi^2}{\nu}$ = '+str(round(gr_chisqu_r[i],2)),lw=1)
+                 label=r'model, $\chi^2$ = '+str(round(gr_chisqu[i],2)),lw=1)
         plt.errorbar(x_axis*1e-3, myModel.GRdata[i][:,1], yerr=myModel.GRdata[i][:,2],\
                      color='black', label=r'data',marker='o',ls='',ms=4,zorder=3)
         

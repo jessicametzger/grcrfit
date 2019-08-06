@@ -58,6 +58,16 @@ def get_data(fdict):
                 if entry.shape[0]==0:
                     print('Exp not found: '+el_data[0,0]+', '+exp)
                     continue
+                    
+                # make sure only one isotope (the one with more data) is included
+                isotopes = np.unique(entry[:,0])
+                if isotopes.shape[0]>1:
+                    counts=[]
+                    for j in range(isotopes.shape[0]):
+                        counts+=[len(np.where(entry[:,0]==isotopes[j])[0])]
+                    counts=np.array(counts)
+                    pref_isotope=isotopes[np.where(counts==np.amax(counts))]
+                    entry = entry[np.where(entry[:,0]==pref_isotope)[0],:]
 
                 # check x-axis units
                 if np.any(entry[:,2]!='ekn') and entry[0,0].lower() != 'gamma':
