@@ -124,5 +124,5 @@ dmypy.json
 .pyre/
 
 # Miscellaneous
-walkers.dat
+test_spl/walkers.dat
 
