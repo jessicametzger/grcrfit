@@ -1,6 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
+start_ind=2000
+
 f=open('./test_spl/walkers.dat','r')
 data=f.readlines()
 f.close()
@@ -21,7 +23,7 @@ for i in range(2,data.shape[-1]):
 
 for i in range(2,data.shape[-1]):
     for j in range(data.shape[0]):
-        plt.plot(range(data[j,:,i].shape[0]),data[j,:,i],lw=.2)
+        plt.plot(range(data[j,start_ind:,i].shape[0]),data[j,start_ind:,i],lw=.2)
     plt.title(names[i])
     plt.savefig('./test_spl/param'+str(i)+'_walkers.png')
     plt.clf()

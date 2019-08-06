@@ -23,7 +23,7 @@ from . import enhs as enf
 #    in Kachelriess +14 (0 for QGS and 1 for LHC)
 # - 'weights' = 3-item list giving relative weights of CR, Voyager, and GR log-like.
 #    Note that priors aren't weighted, so may need to tune weight normalization to get
-#    correct relative weighting between likelihood & prior.
+#    correct relative weighting between likelihood & prior. If weights==None, no weighting
 # - 'priors' = 0 or 1, for gaussian (0) or flag (1) priors on phis
 class Model():
     
@@ -280,14 +280,14 @@ class Model():
             # do Voyager separately for weighting
             if self.nCRpoints!=0:
                 crlike = -.5*np.sum(np.array([np.sum(((cr_fluxes[i] - self.CRdata[i][:,1])/self.CRdata[i][:,2])**2.) \
-                          for i in range(len(cr_fluxes)) if i not in self.VRinds]))*modflags['weights'][0]/self.nCRpoints
+                          for i in range(len(cr_fluxes)) if i not in self.VRinds]))
             else:
                 print("Must include CR data")
                 sys.exit()
                 
             if self.nVRpoints!=0:
                 vrlike = -.5*np.sum(np.array([np.sum(((cr_fluxes[i] - self.CRdata[i][:,1])/self.CRdata[i][:,2])**2.) \
-                          for i in range(len(cr_fluxes)) if i in self.VRinds]))*modflags['weights'][1]/self.nVRpoints
+                          for i in range(len(cr_fluxes)) if i in self.VRinds]))
             
             # add gamma-ray contribution
             if self.nGRpoints!=0:
@@ -303,7 +303,13 @@ class Model():
 
                 # compare GR fluxes to data
                 grlike = -.5*np.sum(np.array([np.sum(((gr_fluxes[i] - self.GRdata[i][:,1])/self.GRdata[i][:,2])**2.) \
-                          for i in range(len(gr_fluxes))]))*modflags['weights'][2]/self.nGRpoints
+                          for i in range(len(gr_fluxes))]))
+            
+            # add weights
+            if modflags['weights']!=None:
+                crlike = crlike*modflags['weights'][0]/self.nCRpoints
+                vrlike = vrlike*modflags['weights'][1]/self.nVRpoints
+                grlike = grlike*modflags['weights'][2]/self.nGRpoints
             
             # sum up weighted contributions
             return crlike + vrlike + grlike
@@ -347,9 +353,14 @@ class Model():
             
             return lp+ll
             
+        # to be directly used by Model instances
         self.lnlike=lnlike
         self.lnprior=lnprior
         self.lnprob=lnprob
+        self.crfunc=crfunc
+        self.grfunc_pp=grfunc_pp
+        self.enhfunc=enhfunc
+        self.ebrfunc=ebrfunc
         return
         
         

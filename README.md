@@ -1,5 +1,5 @@
 
-# Introduction
+# grcrfit
 
 Fit local cosmic ray & glamma ray fluxes, all in one go. We use MCMC (through Python's Emcee package) to constrain the cosmic ray spectrum parameters, and the solar modulation values, through comparison with cosmic ray (CR) and gamma ray (GR) data. The model has 5 basic steps, which are carried out by each walker at each iteration assuming a set of LIS parameters and solar modulation values:
 
@@ -46,7 +46,7 @@ The "modflags" kwarg of run_fit is a dictionary specifying details of the model.
 - "priors" entry: 0 or 1, specifying whether to apply a gaussian (0) or flat (1) prior to the solar modulation. The Earth-based phi priors are taken from Usoskin +11 (given in the crdb data exports), and the Voyager phi prior is 0+-65 MV. Default is 0 (gaussian priors).
 
 
-# citations
+# Citations
 
 CR data: http://lpsc.in2p3.fr/crdb/ & references therein
 
