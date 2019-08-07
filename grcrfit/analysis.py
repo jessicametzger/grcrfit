@@ -5,6 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import corner
 import re
+import sys
 
 from . import run
 from . import model
@@ -87,7 +88,7 @@ def corner_plot(flag, cutoff=0):
         plot_data[:,0] = plot_data[:,0]*1e9
         plot_labels = np.copy(names[current_inds])
         plot_labels[0] = plot_labels[0]+'*1e9'
-        plot_labels = [re.sub(r'\(.+?\)', '', plot_labels[i]) for i in range(plot_labels.shape[0])]
+        plot_labels = [re.sub(r'\(.+?\)', '', plot_labels[j]) for j in range(plot_labels.shape[0])]
 
         corner.corner(plot_data, labels=plot_labels, show_titles=True, quantiles=[.16,.5,.84])
         plt.savefig(path+flag+'/param'+str(i)+'_corner.png')
@@ -135,7 +136,7 @@ def bestfit_plot(flag, cutoff=0):
 
         # get p-p GR fluxes at gamma data's energies
         grfluxes_pp_d = myModel.grfunc_pp(params)
-        grfluxes_d = [np.copy(x) for x in grfluxes_pp_d.copy()]
+        grfluxes_d = [np.copy(x) for x in grfluxes_pp_d]
         
         # get e-bremss. fluxes
         ebrfluxes_d = myModel.ebrfunc()
@@ -170,7 +171,7 @@ def bestfit_plot(flag, cutoff=0):
     
     total_chisqu=np.sum(cr_chisqu) + np.sum(gr_chisqu)
     dof=myModel.nCRpoints + myModel.nVRpoints + myModel.nGRpoints \
-                                 - myModel.phis.shape[0] - myModel.nLISparams*myModel.CRels.shape[0] - 1
+                                 - params.shape[0] - 1
     total_chisqu_r=total_chisqu/dof
     
     print("total chisqu: ",total_chisqu)
@@ -190,15 +191,19 @@ def bestfit_plot(flag, cutoff=0):
         for subkey in enf.enh_els[key]:
             current_el=[]
             for j in range(len(myModel.GREs)):
-                # should the extra *ph.M_DICT[subkey] be here??
-                current_el+=[ph.E_to_p(myModel.GREs[i]*ph.M_DICT[subkey], ph.M_DICT[subkey])]
+                # GR energy is some factor smaller than CR energy; take from Mori 1997
+                factors=10**enf.fac_interp(np.log10(myModel.GREs[j]))
+                current_el+=[ph.E_to_p(myModel.GREs[j]*ph.M_DICT[subkey]*factors, ph.M_DICT[subkey])]
             myModel.CRp_atGRE[key][subkey] = current_el
     myModel.CRfluxes={'h': None, 'he': None, 'cno': None, 'mgsi': None, 'fe': None}
     for key in enf.enh_els_ls:
         if not all(x in myModel.fit_els for x in enf.enh_els[key]):
             myModel.CRfluxes[key] = []
             for i in range(len(myModel.GREs)):
-                myModel.CRfluxes[key] += [enf.Honda_LIS(enf.LIS_params[key], myModel.GREs[i])]
+                mean_mass = np.mean([ph.M_DICT[x] for x in enf.enh_els[key]])
+                
+                factors=10**enf.fac_interp(np.log10(myModel.GREs[i]))
+                myModel.CRfluxes[key] += [enf.Honda_LIS(enf.LIS_params[key], myModel.GREs[i]*mean_mass*factors)]
     myModel.empty_fluxes=[np.zeros(myModel.GREs[i].shape) for i in range(len(myModel.GREs))]
     myModel.GRlogEgs=[np.log10(myModel.GREs[i]) for i in range(len(myModel.GREs))]
     myModel.ebr_fluxes = myModel.ebrfunc()
@@ -207,18 +212,17 @@ def bestfit_plot(flag, cutoff=0):
     # get new, finer lists of model values
     crfluxes = myModel.crfunc(params)
     enh_f = myModel.enhfunc(params)
-    if len(myModel.GRdata)!=0:
+    
+    # get p-p GR fluxes at gamma data's energies
+    grfluxes_pp = myModel.grfunc_pp(params)
+    grfluxes = [np.copy(x) for x in grfluxes_pp]
 
-        # get p-p GR fluxes at gamma data's energies
-        grfluxes_pp = myModel.grfunc_pp(params)
-        grfluxes = [np.copy(x) for x in grfluxes_pp.copy()]
-        
-        # get e-bremss. fluxes
-        ebrfluxes = myModel.ebrfunc()
+    # get e-bremss. fluxes
+    ebrfluxes = myModel.ebrfunc()
 
-        # enhance p-p GR fluxes & add e-bremss data
-        for i in range(len(myModel.GRdata)):
-            grfluxes[i] = enh_f[i]*grfluxes_pp[i] + ebrfluxes[i]
+    # enhance p-p GR fluxes & add e-bremss data
+    for i in range(len(myModel.GRdata)):
+        grfluxes[i] = enh_f[i]*grfluxes_pp[i] + ebrfluxes[i]
             
     
     # CR PLOTS
@@ -243,7 +247,7 @@ def bestfit_plot(flag, cutoff=0):
         plt.yscale('log')
         plt.grid()
         plt.legend()
-        plt.savefig(path+flag+'/param'+str(i)+'_CR.png')
+        plt.savefig(path+flag+'/exp'+str(i)+'_CR.png')
         plt.clf()
         plt.close()
     

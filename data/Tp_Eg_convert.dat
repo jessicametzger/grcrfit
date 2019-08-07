@@ -1,0 +1,9 @@
+# Conversion factors to get peak Egamma for a given Tp (Ek/nuc), taken from Fig. 10 of Mori 1997 (1997ApJ...478..225M).
+# Egamma [MeV], factor [unitless]
+10., 2500
+31.6, 31.65
+100., 10
+316., 6.33
+1000., 6.
+3160., 6.33
+10000., 6.

@@ -5,6 +5,7 @@
 #  so the MCMC helper functions run as efficiently as possible.
 
 import numpy as np
+import copy
 
 from . import helpers as h
 from . import physics as ph
@@ -54,6 +55,7 @@ class Model():
         self.CRdata=[]
         self.CRZs=[]
         self.CRMs=[]
+        self.CRtimes=[]
         self.GRexps=[]
         self.GRdata=[]
         self.VRinds=[]
@@ -74,6 +76,7 @@ class Model():
                     self.CRdata+=[self.data[elkey][expkey][0]]
                     self.CRZs+=[ph.Z_DICT[elkey.lower()]]
                     self.CRMs+=[ph.M_DICT[elkey.lower()]]
+                    self.CRtimes+=[self.data[elkey][expkey][1]]
                     
                     # will need to distinguish voyager data for likelihood weighting
                     if 'voyager1' in expkey.lower() and '2012' in expkey:
@@ -89,7 +92,43 @@ class Model():
         self.CRMs=np.array(self.CRMs).astype(np.float)
         self.CRels=np.array(self.CRels)
         self.CRexps=np.array(self.CRexps)
+        self.CRtimes=np.array(self.CRtimes)
         self.GRexps=np.array(self.GRexps)
+        
+        # remove duplicate phi's based on matching time, exp.
+        # remove duplicates from self.phis, self.phierrs
+        # & create list of lists corresponding to self.CRexps inds
+        # of same phi
+        self.match_inds = []
+        self.remove_inds = []
+        for i in range(self.CRtimes.shape[0]):
+            
+            # skip if already accounted for
+            if i in self.remove_inds:
+                continue
+            
+            duplicates = list(np.where((self.CRtimes == self.CRtimes[i]) & (self.CRexps == self.CRexps[i]))[0])
+            duplicates.sort()
+            if len(duplicates)>1:
+                self.remove_inds+=duplicates[1:]
+            
+            # which CR data indices to assign the phi at this position in self.match_inds
+            self.match_inds += [duplicates]
+        
+        # remove duplicates:
+        self.phis = np.delete(self.phis, self.remove_inds)
+        self.phierrs = np.delete(self.phierrs, self.remove_inds)
+        
+            
+        # determine order of the elements' LIS parameters
+        self.LISorder=np.unique(self.CRels)
+        self.LISdict={}
+        for i in range(self.LISorder.shape[0]):
+            self.LISdict[self.LISorder[i]] = i
+            
+        self.nels = self.LISorder.shape[0]
+        self.nphis=self.phis.shape[0]
+        self.npoints = self.nCRpoints + self.nVRpoints + self.nGRpoints
         
         # whether LIS params will have norm, alpha1, and alpha 2
         # or just norm, alpha1
@@ -101,16 +140,6 @@ class Model():
             print('Must give valid CR model flag')
             sys.exit()
             
-        self.nphis=self.phis.shape[0]
-        self.npoints = self.nCRpoints + self.nVRpoints + self.nGRpoints
-        
-        # determine order of the elements' LIS parameters
-        self.LISorder=np.unique(self.CRels)
-        self.LISdict={}
-        for i in range(self.LISorder.shape[0]):
-            self.LISdict[self.LISorder[i]] = i
-            
-        self.nels = self.LISorder.shape[0]
             
         # DATA CONSOLIDATION
         
@@ -158,8 +187,11 @@ class Model():
             for subkey in enf.enh_els[key]:
                 current_el=[]
                 for j in range(len(self.GREs)):
-                    # should the extra *ph.M_DICT[subkey] be here??
-                    current_el+=[ph.E_to_p(self.GREs[i]*ph.M_DICT[subkey], ph.M_DICT[subkey])]
+                    
+                    # GR energy is some factor smaller than CR energy; take from Mori 1997
+                    factors = 10**enf.fac_interp(np.log10(self.GREs[i]))
+                    current_el+=[ph.E_to_p(self.GREs[i]*ph.M_DICT[subkey]*factors, ph.M_DICT[subkey])]
+                    
                 self.CRp_atGRE[key][subkey] = current_el
         
         
@@ -178,13 +210,18 @@ class Model():
         
         # create list of model CR fluxes, same order as data ones
         def crfunc(theta):
-            crflux_ls=[]
+            crflux_ls=[None] * self.CRels.shape[0]
             for i in range(self.nphis):
                 
-                # use that element's LIS parameters, and that experiment's phi, to get CR flux
-                LIS_params=theta[self.nphis + self.LISdict[self.CRels[i]]*self.nLISparams:\
-                                 self.nphis + (self.LISdict[self.CRels[i]] + 1)*self.nLISparams]
-                crflux_ls+=[self.crformula(LIS_params, theta[i], self.CREs[i], self.CRZs[i], self.CRMs[i])]
+                # loop thru experiments that share that phi
+                for index in self.match_inds[i]:
+                    
+                    # use that element's LIS parameters, and that experiment's phi, to get CR flux
+                    LIS_params=theta[self.nphis + self.LISdict[self.CRels[index]]*self.nLISparams:\
+                                     self.nphis + (self.LISdict[self.CRels[index]] + 1)*self.nLISparams]
+                    crflux_ls[index]=self.crformula(LIS_params, theta[i], self.CREs[index], 
+                                                   self.CRZs[index], self.CRMs[index])
+            
             return crflux_ls
         
         
@@ -205,7 +242,10 @@ class Model():
                 # add old fluxes
                 self.CRfluxes[key] = []
                 for i in range(len(self.GRdata)):
-                    self.CRfluxes[key] += [enf.Honda_LIS(enf.LIS_params[key], self.GREs[i])]
+                    mean_mass = np.mean([ph.M_DICT[x] for x in enf.enh_els[key]])
+                    
+                    factors = 10**enf.fac_interp(np.log10(self.GREs[i]))
+                    self.CRfluxes[key] += [enf.Honda_LIS(enf.LIS_params[key], self.GREs[i]*mean_mass*factors)]
         
         # empty flux array (same shame as in GRdata)
         self.empty_fluxes=[np.zeros(self.GREs[i].shape) for i in range(len(self.GREs))]
@@ -213,8 +253,8 @@ class Model():
         # get enhancement factor at GR energies
         def enhfunc(theta):
             
-            CRfluxes_theta = self.CRfluxes.copy()
-            CRinds_theta = self.CRinds.copy()
+            CRfluxes_theta = copy.deepcopy(self.CRfluxes)
+            CRinds_theta = copy.deepcopy(self.CRinds)
             
             # add theta values to CRfluxes/inds
             for key in CRfluxes_theta:
@@ -376,11 +416,12 @@ class Model():
         
     # default start positions for the MCMC sampler
     def get_startpos(self):
-        startpos=list(self.phis+np.random.normal(scale=1e-4))
+        startpos=list(self.phis)
         
         # prevent Voyager data from starting at very small region around 0
         for i in range(len(startpos)):
-            if abs(startpos[i])<1: startpos[i]=startpos[i]/abs(startpos[i])
+            if 'voyager' in self.CRexps[self.match_inds[i][0]] and '2012' in self.CRexps[self.match_inds[i][0]]:
+                startpos[i] = 10.
         
         for i in range(self.LISorder.shape[0]):
             startpos+=ph.LIS_DICT[self.LISorder[i]] #initialize at former best-fit LIS norm, index
@@ -395,9 +436,12 @@ class Model():
     def get_paramnames(self):
         LISparams=['norm','alpha1','alpha2']
         
+        # phis
         paramnames=[]
-        for i in range(self.CRexps.shape[0]):
-            paramnames+=[self.CRels[i]+'_'+self.CRexps[i]+'_phi']
+        for i in range(self.nphis):
+            paramnames+=[self.CRels[self.match_inds[i][0]]+'_'+self.CRexps[self.match_inds[i][0]]+'_phi']
+            
+        # LIS params
         for i in range(self.LISorder.shape[0]):
             for j in range(self.nLISparams):
                 paramnames+=[self.LISorder[i]+'_'+LISparams[j]]

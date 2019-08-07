@@ -28,10 +28,10 @@ def get_metadata(flag):
             
     metadata=json.loads(metadata)
     
-    # only take last key; they should all be same
-    mkeys = [*metadata]
-    metadata=metadata[mkeys[-1]]
-    
+    # only take one key; they should all be same
+    try: metadata=metadata['run0']
+    except KeyError: return {}
+
     return metadata
 
 
@@ -81,7 +81,7 @@ def get_data(fdict):
                 entry = entry[:,np.array([3,4,5,6,7,8,9,10,12,13,14,15])]
 
                 # calculate dates
-                entry[:,-2] = np.array([str(h.Udate_to_JD(x)) for x in entry[:,-2]])
+                entry[:,-2] = np.array([str(round(h.Udate_to_JD(x),1)) for x in entry[:,-2]])
 
                 # remove upper limits
                 entry = entry[np.where(entry[:,-1].astype(np.int) != 1)[0],:-1] #remove u.l. flag col too
@@ -125,7 +125,7 @@ def get_data(fdict):
                     phi_err = 65.
 
                 # data array, date, phi, phi_err, distance
-                data[el_data[0,0].lower()][exp.lower()] = [entry[:,:-3], entry[0,-1], phi, phi_err, entry[0,-2]]
+                data[el_data[0,0].lower()][exp.lower()] = [entry[:,:-3], date, phi, phi_err, dist]
                     
     return data
 
@@ -336,15 +336,15 @@ class Run:
         
         
         # WRITE WALKER POSITIONS TO WALKER FILE
-        # which steps to record?
-        # - last min(nsteps, save_steps). If rerun, remove existing
         myChain = self.myFitter.get_chain()
         
         # only write lowest temperature
         if self.metadata['PT']:
             myChain=myChain[0,...]
             
-        start_ind=max(myChain.shape[1]-save_steps, 0)
+        # which steps to record?
+        # - last min(nsteps, save_steps). If rerun, remove existing
+        start_ind=int(max(myChain.shape[1]-save_steps, 0))
         
         wf=open(self.wkfilep,'w')
 

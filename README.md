@@ -16,7 +16,7 @@ Fit local cosmic ray & glamma ray fluxes, all in one go. We use MCMC (through Py
 
 # Requirements
 
-Python 3 & everything that comes with it, numpy, emcee, tqdm, scipy.
+Python 3 & everything that comes with it, numpy, emcee, tqdm, scipy, corner.
 
 
 # Basic run_fit instructions
@@ -26,7 +26,7 @@ Runs are performed as demonstrated in test_spl.py and test_bpl.py. Typically, th
     import grcrfit
     grcrfit.run_fit("flag", filedict, kwargs=...)
 
-where "flag" (str) is the name of the run, filedict is a dictionary of .USINE data files & sub-experiments to use, and kwargs specify details of the run (see below, along with run.py and model.py, for more information). "flag" must contain no slashes, etc. as it will be the name of the run's directory and will be appended to all output file names. In filedict, each keyword must be a database's full file path and the corresponding entry must be the list of sub-experiments to include for that database (from the second column of the .USINE file). Each cosmic ray species must have its own .USINE database. Gamma ray data must also be in .USINE format, for convenience. In grcrfit/data/data_conversion/, there is a script (dat_to_usine.py) that can be modified to convert data files to .USINE format.
+where "flag" (str) is the name of the run, filedict is a dictionary of .USINE data files & sub-experiments to use, and kwargs specify details of the run (see below, along with run.py and model.py, for more information). "flag" must contain no slashes, etc. as it will be the name of the run's directory. In filedict, each keyword must be a database's full file path and the corresponding entry must be the list of sub-experiments to include for that database (from the second column of the .USINE file). Each cosmic ray species must have its own .USINE database. Gamma ray data must also be in .USINE format, for convenience. In grcrfit/data/data_conversion/, there is a script (dat_to_usine.py) that can be modified to convert data files to .USINE format.
 
 
 # modflags
@@ -41,7 +41,11 @@ The "modflags" kwarg of run_fit is a dictionary specifying details of the model.
 
         logprob = (weights[0] * CRchisqu/nCRpoints) + (weights[1] * Voyagerchisqu/nVoyagerpoints) + (weights[2] * GRchisqu/nGRpoints) + logprior
 
-    So, note that the absolute weighting of the CR, VR, and GR contributions does matter, if you aren't using a flat prior. Default is [.33, .33, .33] (equal weights).
+    So, note that the absolute weighting of the CR, VR, and GR contributions does matter, if you aren't using a flat prior. If you set "weights" to None, the logprob will be calculated without weighting:
+    
+        logprob = CRchisqu + Voyagerchisqu + GRchisqu + logprior
+    
+    The default is None.
 
 - "priors" entry: 0 or 1, specifying whether to apply a gaussian (0) or flat (1) prior to the solar modulation. The Earth-based phi priors are taken from Usoskin +11 (given in the crdb data exports), and the Voyager phi prior is 0+-65 MV. Default is 0 (gaussian priors).
 

@@ -123,6 +123,18 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
-# Miscellaneous
+# My results
+*spl*/
+*spl*
+*bpl*/
+*bpl*
+
+# Shared results
+!test_spl.py
+!test_bpl.py
+!test_spl/
+!test_bpl/
+
+# Files too big
 **/walkers.dat
 

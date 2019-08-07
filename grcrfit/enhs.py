@@ -22,6 +22,12 @@ enh_els={'h': ['h'],
          'fe': ['fe']}
 enh_els_ls=['h','he','cno','mgsi','fe']
 
+
+# CONVERSION FACTORS TO GO FROM GAMMA E TO CR E
+# linear interpolation in log-log space
+factors=h.lstoarr(h.open_stdf(path+"data/Tp_Eg_convert.dat"),",").astype(np.float)
+fac_interp=interpolate.interp1d(np.log10(factors[:,0]), np.log10(factors[:,1]), kind='linear', fill_value='extrapolate')
+
 # DEFAULT FALLBACK LIS PARAMETERS FROM HONDA 2004
 LIS_params={'h': [2.74,14900,2.15,0.21],
             'he': [2.64,600,1.25,0.14],
@@ -33,6 +39,7 @@ LIS_params={'h': [2.74,14900,2.15,0.21],
 # E = total Ekin in MeV
 def Honda_LIS(LIS_params, E):
     return np.array(LIS_params[1]*(E/1000. + LIS_params[2]*np.exp(-LIS_params[3]*np.sqrt(E/1000.)))**(-LIS_params[0]))
+
 
 # get Kachelriess+14 multiplication factors
 mults=h.open_stdf(path+"data/enh_f_2014.dat")
