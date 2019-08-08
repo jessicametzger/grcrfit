@@ -7,6 +7,7 @@ from . import physics as ph
 
 # spl = single power law
 # bpl = beta power law (p.l. w.r.t. momentum and beta)
+# brpl = broken power law (as in Strong 2015, ICRC)
 
 # WITH MODULATION
 
@@ -47,6 +48,27 @@ def flux_bpl(LIS_params, phi, E_TOA, Z, M):
     
     return flux_TOA_model
 
+def flux_brpl(LIS_params, phi, E_TOA, Z, M):
+    LIS_norm, alpha1, alpha3, E_br, delta = LIS_params
+
+    # figure out which interstellar energies/momenta you'll need
+    E_IS=ph.demod_energy(E_TOA, phi, Z)
+    p_IS=ph.E_to_p(E_IS, M)
+    if not (np.all(np.isfinite(E_IS)) and np.all(np.isfinite(p_IS))):
+        return -np.inf
+
+    # construct true LIS at the same energies (momenta)
+    p_br=ph.E_to_p(E_br, M)
+    flux_IS=LIS_norm*((p_IS/p_br)**(alpha1/delta) + (p_IS/p_br)**(alpha3/delta))**delta
+    
+    # rescale so LIS norm can be compared btwn models at p=p_br
+    flux_IS=flux_IS*(p_br**alpha1)*(2**(-delta))
+    
+    # modulate the LIS according to phi
+    flux_TOA_model=ph.mod_flux(flux_IS, E_TOA, E_IS, M)
+    
+    return flux_TOA_model
+
 
 # BELOW - INTERSTELLAR: NO MODULATION
 
@@ -68,6 +90,20 @@ def flux_bpl_IS(LIS_params, p, M):
 
     # construct true LIS at the same energies (momenta)
     flux=LIS_norm*(p**alpha1)*(v**alpha2)
+    
+    return flux
+
+
+def flux_brpl_IS(LIS_params, p, M):
+    LIS_norm, alpha1, alpha3, E_br, delta = LIS_params
+    p=np.array(p)
+
+    # construct true LIS at the same energies (momenta)
+    p_br=ph.E_to_p(E_br, M)
+    flux=LIS_norm*((p/p_br)**(alpha1/delta) + (p/p_br)**(alpha3/delta))**delta
+    
+    # rescale so LIS norm can be compared btwn models at p=p_br
+    flux=flux*(p_br**alpha1)*(2**(-delta))
     
     return flux
     

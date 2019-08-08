@@ -11,10 +11,12 @@ from . import run
 from . import model
 from . import physics as ph
 from . import enhs as enf
+from . import helpers as h
 
 path = os.getcwd()+'/'
 
-# open & read walker file
+# open & read walker file for plotting, interpretation
+# returns names too
 def get_walker_data(flag, cutoff=0):
     
     f=open(path+flag+'/walkers.dat','r')
@@ -32,14 +34,14 @@ def get_walker_data(flag, cutoff=0):
 
 
 # given 2d array of parameter samples (indexed by step, paramID),
-# return the median of each parameter
+# return the mean & stddev of each parameter
 def get_best_fit(data):
-    return np.median(data,axis=0)
+    return [np.median(data,axis=0), np.std(data,axis=0)]
 
 
-# create walker plots (all params), given a run's flag
-# will plot last 1000 steps, and only saved temperature
-# saves plots in the run's directory (given by its flag)
+# create walker plots (all params), given a run's flag.
+# will remove first "cutoff" steps.
+# saves plots in the run's directory (given by its flag), filename = "param#_walkers.png"
 def walker_plot(flag,cutoff=0):
     
     names,data = get_walker_data(flag,cutoff=cutoff)
@@ -65,22 +67,25 @@ def walker_plot(flag,cutoff=0):
     return
 
 
-# create corner plots (all phis vs. everything else, individually)
-# saves plots in the run's directory (given by its flag)
+# create corner plots (all phis vs. respective LIS parameters, individually)
+# saves plots in the run's directory (given by its flag), filename = "param#_corner.png"
 def corner_plot(flag, cutoff=0):
     
+    # get walker data
     names,data = get_walker_data(flag, cutoff=cutoff)
     data=data[:,2:]
     
+    # get param names
     phi_params = [i for i in range(names.shape[0]) if 'phi' in names[i].lower()]
     LIS_params = [i for i in range(names.shape[0]) if i not in phi_params]
     
-    # corner plot of each phi vs. all LIS params
+    # corner plot of each phi vs. all its corresponding LIS params
     for i in range(len(phi_params)):
+        
+        # get inds of parameters to use
         phi_name=names[i].strip()
         el_inds=[LIS_params[j] for j in range(len(LIS_params)) if\
                  phi_name[0:2]==names[LIS_params[j]].strip()[0:2]]
-
         current_inds=np.array(el_inds + [i])
 
         # scale up LIS norm so it doesn't just say "0.0"
@@ -89,49 +94,51 @@ def corner_plot(flag, cutoff=0):
         plot_labels = np.copy(names[current_inds])
         plot_labels[0] = plot_labels[0]+'*1e9'
         plot_labels = [re.sub(r'\(.+?\)', '', plot_labels[j]) for j in range(plot_labels.shape[0])]
-
+        
+        # plot & save figure
         corner.corner(plot_data, labels=plot_labels, show_titles=True, quantiles=[.16,.5,.84])
         plt.savefig(path+flag+'/param'+str(i)+'_corner.png')
         plt.clf()
         plt.close()
-    
     return
 
 
 # reconstruct Model object for given run
 def get_model(flag):
     
-    # get run info for model configuration
+    # get run info necessary for model configuration
     metadata = run.get_metadata(flag)
-    data = run.get_data(metadata['fdict'])
+    datadict = run.get_data(metadata['fdict'])
     
-    # re-create model
-    return model.Model(metadata['modflags'], data)
-    
+    # re-initialize model & return it
+    return model.Model(metadata['modflags'], datadict)
 
-# plot all data w/best-fit models (CR, GR, enhancement)
-# saves plots in the run's directory (given by its flag)
-# also output chi squared
+
+# plot all data w/best-fit models (CR, GR, enhancement model, phi best-fit w/Usoskin values)
+# saves plots in the run's directory (given by its flag) - file format "exp#_.png" (# is kind of meaningless)
+# also print total chi squared
+# cutoff specifies how many burn-in steps to exclude when getting median parameters
 def bestfit_plot(flag, cutoff=0):
     
-    # get walker data for best-fit params
+    # get walker data
     names,wdata = get_walker_data(flag, cutoff=cutoff)
     nwalkers=np.unique(wdata[:,1]).shape[0]
-    params=get_best_fit(wdata[nwalkers*cutoff:, 2:])
+    
+    # get best-fit params from walker data
+    params,paramerrs=get_best_fit(wdata[nwalkers*cutoff:, 2:])
     
     # reconstruct model
     myModel = get_model(flag)
     
+    # Get fluxes at data energies for chi squared calculation
     
-    # Get fluxes at data energies
-    # for chi squared calculation
-    
-    # CR
+    # CR model
     crfluxes_d = myModel.crfunc(params)
     
-    # get enhancement factors
+    # enhancement factors
     enh_f_d = myModel.enhfunc(params)
     
+    # GR model
     if len(myModel.GRdata)!=0:
 
         # get p-p GR fluxes at gamma data's energies
@@ -154,26 +161,24 @@ def bestfit_plot(flag, cutoff=0):
         
         # each dataset, considered independently, has ~nLISparams + 1 free params (nLISparams + solar modulation)
         cr_chisqu_r += [np.sum(((crfluxes_d[i] - myModel.CRdata[i][:,1])/myModel.CRdata[i][:,2])**2.)/
-                        max(myModel.CRdata[i].shape[0]-myModel.nLISparams-2,1)]
+                        max(myModel.CRdata[i].shape[0]-myModel.nLISparams-1,1)]
     
     gr_chisqu=[]
     gr_chisqu_r=[]
     for i in range(len(myModel.GRdata)):
         gr_chisqu += [np.sum(((grfluxes_d[i] - myModel.GRdata[i][:,1])/myModel.GRdata[i][:,2])**2.)]
         
-        # gamma ray data, considered independently, has ~nLISparams free params
+        # gamma ray data, considered independently, has ~nLISparams*nels free params
         gr_chisqu_r += [np.sum(((grfluxes_d[i] - myModel.GRdata[i][:,1])/myModel.GRdata[i][:,2])**2.)/
-                        max(myModel.GRdata[i].shape[0]-myModel.nLISparams-1,1)]
+                        max(myModel.GRdata[i].shape[0]-myModel.nLISparams*myModel.nels,1)]
     
     cr_chisqu=np.array(cr_chisqu)
     gr_chisqu=np.array(gr_chisqu)
     
-    
+    # total (reduced) chisqu
     total_chisqu=np.sum(cr_chisqu) + np.sum(gr_chisqu)
-    dof=myModel.nCRpoints + myModel.nVRpoints + myModel.nGRpoints \
-                                 - params.shape[0] - 1
+    dof=myModel.nCRpoints + myModel.nVRpoints + myModel.nGRpoints - params.shape[0]
     total_chisqu_r=total_chisqu/dof
-    
     print("total chisqu: ",total_chisqu)
     print("total reduced chisqu: ",total_chisqu_r)
     
@@ -229,6 +234,7 @@ def bestfit_plot(flag, cutoff=0):
     for i in range(len(crfluxes_d)):
         x_axis=myModel.CRdata[i][:,0]
         
+        # plot
         plt.plot(myModel.CREs[i]*1e-3/ph.M_DICT[myModel.CRels[i].lower()], 
                  crfluxes[i]*(myModel.CREs[i]**2.), color='blue', 
                  label=r'model, $\chi^2$ = '+str(round(cr_chisqu[i],2)),lw=1)
@@ -236,10 +242,12 @@ def bestfit_plot(flag, cutoff=0):
                      myModel.CRdata[i][:,1]*(x_axis**2.), yerr=myModel.CRdata[i][:,2]*(x_axis**2.),\
                      color='black', label=r'data',marker='o',ls='',ms=4,zorder=3)
         
+        # element name, first letter capitalized
         proper_name=myModel.CRels[i].upper()
         if len(proper_name)>1:
             proper_name=proper_name[0] + proper_name[1:].lower()
         
+        # plot paraphernalia
         plt.title(proper_name+', '+myModel.CRexps[i].upper().replace('_',' '))
         plt.xlabel('E [GeV/n]')
         plt.ylabel('(flux) '+r' (E$^2$)')
@@ -255,6 +263,7 @@ def bestfit_plot(flag, cutoff=0):
     for i in range(len(grfluxes_d)):
         x_axis=myModel.GRdata[i][:,0]
         
+        # plot data/all model components
         plt.plot(myModel.GREs[i]*1e-3, enh_f[i]*grfluxes_pp[i], color='red', label=r'model, CR',lw=1)
         plt.plot(myModel.GREs[i]*1e-3, ebrfluxes[i], color='green', label=r'model, e-br',lw=1)
         plt.plot(myModel.GREs[i]*1e-3, grfluxes[i], color='blue', 
@@ -262,6 +271,7 @@ def bestfit_plot(flag, cutoff=0):
         plt.errorbar(x_axis*1e-3, myModel.GRdata[i][:,1], yerr=myModel.GRdata[i][:,2],\
                      color='black', label=r'data',marker='o',ls='',ms=4,zorder=3)
         
+        # plot paraphernalia
         plt.title(myModel.GRexps[i].upper().replace('_',' '))
         plt.xlabel('E [GeV]')
         plt.ylabel('emissivity')
@@ -278,6 +288,7 @@ def bestfit_plot(flag, cutoff=0):
     for i in range(len(grfluxes)):
         x_axis=myModel.GREs[i]
         
+        # plot model
         plt.plot(x_axis*1e-3, enh_f[i],lw=1)
         plt.title('$\t{'+myModel.GRexps[i].upper().replace('_',' ')+', Enhancement}$')
         plt.xlabel('E [GeV]')
@@ -288,6 +299,24 @@ def bestfit_plot(flag, cutoff=0):
         plt.clf()
         plt.close()
     
+    # PHI PLOTS
+    inds=myModel.phitimes.argsort()
+    
+    plt.errorbar(myModel.phitimes[inds], myModel.phis[inds], yerr=myModel.phierrs[inds], color='black',
+                 marker='o', markersize=6, label='Usoskin +11')
+    plt.errorbar(myModel.phitimes[inds], params[0:myModel.phis.shape[0]][inds], yerr=paramerrs[0:myModel.phis.shape[0]][inds],
+                 color='blue', marker='o', markersize=6, label='best-fit')
+    
+    plt.ylim(bottom=min(np.amin(myModel.phis),np.amin(params[0:myModel.phis.shape[0]]))*1.1)
+    
+    plt.legend()
+    times=np.arange(np.amin(myModel.phitimes), np.amax(myModel.phitimes),
+                   (np.amax(myModel.phitimes) - np.amin(myModel.phitimes))/10.)
+    tlabels=['/'.join([str(round(y)) for y in h.JD_to_cal(x)]) for x in times]
+    plt.xticks(times, tlabels, rotation=45.)
+    plt.ylabel('$\phi$')
+    plt.title('Solar Modulation')
+    plt.savefig(path+flag+'/phi.png')
     
     return
 

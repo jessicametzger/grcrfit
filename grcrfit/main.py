@@ -4,7 +4,13 @@
 from .run import Run
 
 # creates a Run object, executes it, logs output, & returns it
-def run_fit(flag, fdict, nsteps=5000, nwalkers=None, rerun=False, PT=True, ntemps=10, processes=None,
+# "flag" gives the name of the run
+# "fdict" is dictionary (key = USINE db filepath - one per element, entry = list of its exps to use)
+# rerun is bool specifying whether this is a rerun of existing run of same flag (its folder, metadata.json, & walkers.dat must exist)
+# nsteps, nwalkers, PT, ntemps, processes - see Fitter, Model objects
+# modflags - see Model object
+# savesteps is how many steps to save in walkers.dat (if larger than nsteps, will be nsteps)
+def run_fit(flag, fdict, rerun=False, nsteps=5000, nwalkers=None, PT=True, ntemps=10, processes=None,
         modflags={'pl': 's', 'enh': 0, 'weights': None, 'priors': 0}, save_steps=2000.):
     
     # initialize run

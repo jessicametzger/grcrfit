@@ -59,8 +59,17 @@ class Model():
         self.GRexps=[]
         self.GRdata=[]
         self.VRinds=[]
-        for elkey in self.data: #loop thru elements
-            for expkey in self.data[elkey]: #loop thru experiments
+        
+#         elements = list(self.data.keys())
+#         elements.sort()
+        for elkey in self.data:
+#         for elkey in elements: #loop thru elements
+            
+#             experiments = list(self.data[elkey].keys())
+#             experiments.sort()
+            
+            for expkey in self.data[elkey]:
+#             for expkey in experiments: #loop thru experiments
                 
                 # separate GR and CR data
                 if 'gamma' in elkey.lower():
@@ -93,6 +102,7 @@ class Model():
         self.CRels=np.array(self.CRels)
         self.CRexps=np.array(self.CRexps)
         self.CRtimes=np.array(self.CRtimes)
+        self.phitimes=np.copy(self.CRtimes)
         self.GRexps=np.array(self.GRexps)
         
         # remove duplicate phi's based on matching time, exp.
@@ -118,8 +128,8 @@ class Model():
         # remove duplicates:
         self.phis = np.delete(self.phis, self.remove_inds)
         self.phierrs = np.delete(self.phierrs, self.remove_inds)
+        self.phitimes = np.delete(self.phitimes, self.remove_inds)
         
-            
         # determine order of the elements' LIS parameters
         self.LISorder=np.unique(self.CRels)
         self.LISdict={}
@@ -130,12 +140,15 @@ class Model():
         self.nphis=self.phis.shape[0]
         self.npoints = self.nCRpoints + self.nVRpoints + self.nGRpoints
         
-        # whether LIS params will have norm, alpha1, and alpha 2
+        # whether each el's LIS params will have norm, alpha1, and alpha 2
+        # or norm, alpha1, alpha3, p_br
         # or just norm, alpha1
         if self.modflags['pl']=='s':
             self.nLISparams=2
         elif self.modflags['pl']=='b':
             self.nLISparams=3
+        elif self.modflags['pl']=='br':
+            self.nLISparams=4
         else:
             print('Must give valid CR model flag')
             sys.exit()
@@ -207,6 +220,9 @@ class Model():
         elif self.modflags['pl']=='b':
             self.crformula = crf.flux_bpl
             self.crformula_IS = crf.flux_bpl_IS
+        elif self.modflags['pl']=='br':
+            self.crformula = crf.flux_brpl
+            self.crformula_IS = crf.flux_brpl_IS
         
         # create list of model CR fluxes, same order as data ones
         def crfunc(theta):
@@ -217,8 +233,11 @@ class Model():
                 for index in self.match_inds[i]:
                     
                     # use that element's LIS parameters, and that experiment's phi, to get CR flux
-                    LIS_params=theta[self.nphis + self.LISdict[self.CRels[index]]*self.nLISparams:\
-                                     self.nphis + (self.LISdict[self.CRels[index]] + 1)*self.nLISparams]
+                    LIS_params=list(theta[self.nphis + self.LISdict[self.CRels[index]]*self.nLISparams:\
+                                     self.nphis + (self.LISdict[self.CRels[index]] + 1)*self.nLISparams])
+                    if self.modflags['pl']=='br': #add universal delta parameter
+                        LIS_params+=[theta[-1]]
+                        
                     crflux_ls[index]=self.crformula(LIS_params, theta[i], self.CREs[index], 
                                                    self.CRZs[index], self.CRMs[index])
             
@@ -263,9 +282,15 @@ class Model():
                 if CRfluxes_theta[key] == None:
                     
                     if key not in ['cno', 'mgsi']: #if the bin contains only 1 element
-                        LIS_params=theta[self.nphis + self.LISdict[key]*self.nLISparams:\
-                                         self.nphis + (self.LISdict[key] + 1)*self.nLISparams]
-                        CRinds_theta[key] = -LIS_params[1] #enhancement factors given w.r.t. positive spectral ind.
+                        LIS_params=list(theta[self.nphis + self.LISdict[key]*self.nLISparams:\
+                                         self.nphis + (self.LISdict[key] + 1)*self.nLISparams])
+                        if self.modflags['pl']=='br': #add universal delta parameter
+                            LIS_params+=[theta[-1]]
+                        
+                        # enhancement factors given w.r.t. positive spectral ind.
+                        # if beta pl, this will be momentum (higher-energy) index
+                        # if broken pl, this will be first (higher-energy) index
+                        CRinds_theta[key] = -LIS_params[1] 
                         
                         CRfluxes_theta[key] = []
                         for i in range(len(self.GRdata)):
@@ -279,8 +304,11 @@ class Model():
                         flux_sum = 0
                         fluxes = [np.copy(x) for x in self.empty_fluxes] #must copy np arrays individually
                         for el in enf.enh_els[key]:
-                            LIS_params=theta[self.nphis + self.LISdict[el]*self.nLISparams:\
-                                             self.nphis + (self.LISdict[el] + 1)*self.nLISparams]
+                            LIS_params=list(theta[self.nphis + self.LISdict[el]*self.nLISparams:\
+                                             self.nphis + (self.LISdict[el] + 1)*self.nLISparams])
+                            if self.modflags['pl']=='br': #add universal delta parameter
+                                LIS_params+=[theta[-1]]
+                            
                             flux_1GeV=self.crformula_IS(LIS_params, ph.p1_DICT[el], ph.M_DICT[el])
                             weighted_sum += (-LIS_params[1]*flux_1GeV) #enhancement factors given w.r.t. positive spectral ind.
                             flux_sum += flux_1GeV
@@ -300,8 +328,10 @@ class Model():
         # can also consider some modflag options here
         self.GRlogEgs=[np.log10(self.GREs[i]) for i in range(len(self.GREs))]
         def grfunc_pp(theta):
-            LIS_params_pp = theta[self.nphis + self.nLISparams*self.LISdict['h']:\
-                                  self.nphis + self.nLISparams*(self.LISdict['h']+1)]
+            LIS_params_pp = list(theta[self.nphis + self.nLISparams*self.LISdict['h']:\
+                                  self.nphis + self.nLISparams*(self.LISdict['h']+1)])
+            if self.modflags['pl']=='br': #add universal delta parameter
+                LIS_params_pp+=[theta[-1]]
             return grf.get_fluxes_pp(LIS_params_pp, self.GRlogEgs, self.crformula_IS)
         
         # retrieve e-bremss values at desired energies
@@ -387,6 +417,15 @@ class Model():
                 if theta[self.nphis + i*self.nLISparams + 1] >= 0 or\
                    theta[self.nphis + i*self.nLISparams] < 0:
                     return -np.inf
+                
+                # positive break energy
+                if self.modflags['pl']=='br':
+                    if theta[self.nphis + i*self.nLISparams + 3] <= 0:
+                        return -np.inf
+                
+            # negative delta
+            if self.modflags['pl']=='br':
+                if theta[-1]>=0: return -np.inf
             return lp_phi(theta)
         
         
@@ -427,14 +466,27 @@ class Model():
             startpos+=ph.LIS_DICT[self.LISorder[i]] #initialize at former best-fit LIS norm, index
 
             if self.modflags['pl']=='b':
+                
+                # add ~best-fit value from previous fit
                 startpos+=[2.5]
+                
+            elif self.modflags['pl']=='br':
+                
+                # add best-fit proton values from Strong 2015 (ICRC)
+                startpos+=[-2.37,5870.]
+        
+        # add delta (Strong 2015 ICRC)
+        if self.modflags['pl']=='br':
+            startpos+=[-.5]
         
         return np.array(startpos)
         
         
     # default parameter names
     def get_paramnames(self):
-        LISparams=['norm','alpha1','alpha2']
+        LISparams={'s': ['norm','alpha1'],
+                   'b': ['norm','alpha1','alpha2'],
+                   'br': ['norm','alpha1','alpha3', 'Ebr']}
         
         # phis
         paramnames=[]
@@ -443,8 +495,10 @@ class Model():
             
         # LIS params
         for i in range(self.LISorder.shape[0]):
-            for j in range(self.nLISparams):
-                paramnames+=[self.LISorder[i]+'_'+LISparams[j]]
+            paramnames+=[self.LISorder[i]+'_'+x for x in LISparams[self.modflags['pl']]]
+        
+        if self.modflags['pl']=='br':
+            paramnames+=['delta']
         
         return np.array(paramnames)
     

@@ -3,7 +3,7 @@
 
 Fit local cosmic ray & glamma ray fluxes, all in one go. We use MCMC (through Python's Emcee package) to constrain the cosmic ray spectrum parameters, and the solar modulation values, through comparison with cosmic ray (CR) and gamma ray (GR) data. The model has 5 basic steps, which are carried out by each walker at each iteration assuming a set of LIS parameters and solar modulation values:
 
-1. We assume the local interstellar CR flux is a power-law with respect to CR momentum (and, optionally, velocity).
+1. We assume the local interstellar CR flux is a single- or broken-power-law with respect to CR momentum (or, optionally, a single power law with both CR momentum and velocity).
 
 2. We assume solar modulation proceeds according to the simplified force-field model of Gleeson & Axford 1968. The modulated data is compared to the CR data.
 
@@ -21,7 +21,7 @@ Python 3 & everything that comes with it, numpy, emcee, tqdm, scipy, corner.
 
 # Basic run_fit instructions
 
-Runs are performed as demonstrated in test_spl.py and test_bpl.py. Typically, the user will work in the grcrfit package directory and will execute in Python:
+Runs are performed as demonstrated in test_spl.py, test_bpl.py, and test_brpl.py. Typically, the user will work in the grcrfit package directory and will execute in Python:
 
     import grcrfit
     grcrfit.run_fit("flag", filedict, kwargs=...)
@@ -33,7 +33,7 @@ where "flag" (str) is the name of the run, filedict is a dictionary of .USINE da
 
 The "modflags" kwarg of run_fit is a dictionary specifying details of the model.
 
-- "pl" entry: "s" (single power-law) or "b" (beta power-law), specifies which CR model to use. test_spl.py assumes the "single power-law" model, where the CR flux is a power law with only the momentum. test_bpl.py assumes the "beta power-law" model, where the CR flux is a power law with both the momentum and the velocity, each getting their own index. So the beta power-law has one extra parameter per element. Default is "s" (single power-law).
+- "pl" entry: "s" (single power-law), "b" (beta power-law), or "br" (broken power-law); specifies which CR model to use. test_spl.py assumes the "single power-law" model, where the CR flux is a power law with only the momentum. test_bpl.py assumes the "beta power-law" model, where the CR flux is a power law with both the momentum and the velocity, each getting their own index. test_brpl.py assumes the "broken power-law" model, where the CR flux is a broken power-law with respect to momentum, using the formula from Strong 2015 (ICRC) with a free break momentum for each element and two free indices for each elements, and one free softening parameter $\delta$ for all elements' LISs. So the beta power-law has one extra parameter per element, and the broken power-law has two extra parameters per element and one more extra parameter in total. Default is "s" (single power-law).
 
 - "enh" entry: 0 or 1, specifies which set of multiplication factors to use (Kachelriess +14 provides two tables, calculated using two different frameworks). Default is 0 (QGSJET results).
 
@@ -45,14 +45,14 @@ The "modflags" kwarg of run_fit is a dictionary specifying details of the model.
     
         logprob = CRchisqu + Voyagerchisqu + GRchisqu + logprior
     
-    The default is None.
+    Note that for most fits, there is so much data that the prior will have hardly any influence at all with no weighting. The default for this flag is None.
 
 - "priors" entry: 0 or 1, specifying whether to apply a gaussian (0) or flat (1) prior to the solar modulation. The Earth-based phi priors are taken from Usoskin +11 (given in the crdb data exports), and the Voyager phi prior is 0+-65 MV. Default is 0 (gaussian priors).
 
 
 # Results
 
-After running a fit, you can use the methods in analysis.py to interpret and create plots of the results. The method walker_plot() creates plots of the last N steps (N specified by the user, or default all). The method corner_plot() creates corner plots of all solar modulation parameters together with the LIS parameter of the same respective element. The user can again provide a cutoff to only count the last N steps. The bestfit_plot() method plots the best-fit models with the data (cosmic ray and gamma ray), again allowing the user to specify a cutoff. It also creates a plot of the best-fit enhancement factors. You can see how these are run in test_spl.py and test_bpl.py. The resulting plots are included in their respective folders (however, the walkers.dat file has been excluded from github since it is too large).
+After running a fit, the results are saved in the walkers.dat file (a table of the lowest-temperature chain for the number of steps specified in the save_steps kwarg), and the metadata.json file (a dictionary of all kwargs, etc. needed to reproduce the run). You can use the methods in analysis.py to interpret these results. The method walker_plot() creates plots of the last N steps (N specified by the user, or default all steps in walkers.dat). The method corner_plot() creates corner plots of all solar modulation parameters together with the LIS parameter of the same respective element. The user can again provide a cutoff to only count the last N steps. The bestfit_plot() method plots the best-fit models with the data (cosmic ray and gamma ray), again allowing the user to specify a sample step cutoff for calculating median parameters. It also creates a plot of the best-fit enhancement factors. You can see how these are run in test_spl.py and test_bpl.py. The resulting plots are included in their respective folders (however, the walkers.dat file has been excluded from github since it is too large).
 
 
 # Citations

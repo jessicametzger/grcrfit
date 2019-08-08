@@ -25,7 +25,7 @@ def get_metadata(flag):
     f=open(path+flag+'/metadata.json','r')
     metadata=f.read()
     f.close()
-            
+    
     metadata=json.loads(metadata)
     
     # only take one key; they should all be same
@@ -38,9 +38,18 @@ def get_metadata(flag):
 # get & format data from fdict, into "standard" format for Model class argument
 # each element must have its own file!
 def get_data(fdict):
+#     dtypes = list(fdict.keys())
+#     dtypes.sort()
+    
     data = {}
     for dtype in fdict:
+#     for dtype in dtypes:
+        
+#         files=list(fdict[dtypes])
+#         files.sort()
+        
         for fkey in fdict[dtype]:
+#         for fkey in files:
 
             # open complete USINE file as arr of strings
             el_data=h.lstoarr([x.lower() for x in h.open_stdf(fkey)],None)
@@ -126,7 +135,7 @@ def get_data(fdict):
 
                 # data array, date, phi, phi_err, distance
                 data[el_data[0,0].lower()][exp.lower()] = [entry[:,:-3], date, phi, phi_err, dist]
-                    
+    
     return data
 
 
