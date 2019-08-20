@@ -26,12 +26,17 @@ from . import enhs as enf
 #    Note that priors aren't weighted, so may need to tune weight normalization to get
 #    correct relative weighting between likelihood & prior. If weights==None, no weighting
 # - 'priors' = 0 or 1, for gaussian (0) or flag (1) priors on phis
+# - 'scaling' = True or False, whether or not to scale all CR experiments  except AMS-02 
+#    to correct for systematic errors
 class Model():
     
     # initialize the Model object
     def __init__(self, modflags, data):
         self.modflags = modflags
         self.data = data
+        
+        try: test=self.modflags['scaling']
+        except KeyError: self.modflags['scaling']=False
         
         # if parallel, these will need to be pickled
         global lnlike, lnprior, lnprob
@@ -60,16 +65,14 @@ class Model():
         self.GRdata=[]
         self.VRinds=[]
         
-#         elements = list(self.data.keys())
-#         elements.sort()
-        for elkey in self.data:
-#         for elkey in elements: #loop thru elements
+        elements = list(self.data.keys())
+        elements.sort()
+        for elkey in elements: #loop thru elements
             
-#             experiments = list(self.data[elkey].keys())
-#             experiments.sort()
+            experiments = list(self.data[elkey].keys())
+            experiments.sort()
             
-            for expkey in self.data[elkey]:
-#             for expkey in experiments: #loop thru experiments
+            for expkey in experiments: #loop thru experiments
                 
                 # separate GR and CR data
                 if 'gamma' in elkey.lower():
@@ -108,7 +111,7 @@ class Model():
         # remove duplicate phi's based on matching time, exp.
         # remove duplicates from self.phis, self.phierrs
         # & create list of lists corresponding to self.CRexps inds
-        # of same phi
+        # of same phi.
         self.match_inds = []
         self.remove_inds = []
         for i in range(self.CRtimes.shape[0]):
@@ -119,6 +122,11 @@ class Model():
             
             duplicates = list(np.where((self.CRtimes == self.CRtimes[i]) & (self.CRexps == self.CRexps[i]))[0])
             duplicates.sort()
+            
+            # for scaling
+            if self.modflags['scaling'] and 'ams02' in self.CRexps[i].lower():
+                self.AMS02_inds = duplicates
+            
             if len(duplicates)>1:
                 self.remove_inds+=duplicates[1:]
             
@@ -130,6 +138,14 @@ class Model():
         self.phierrs = np.delete(self.phierrs, self.remove_inds)
         self.phitimes = np.delete(self.phitimes, self.remove_inds)
         
+        # also create list of ref. scaling factors & errors (all 1, .1)
+        # corresponding with the list of phi's, for prior calculation.
+        # Don't ignore AMS-02, scaling will be set to 1 anyways.
+        if self.modflags['scaling']:
+            self.scales = np.repeat(1, self.phis.shape[0])
+            self.scaleerrs = np.repeat(.1, self.phis.shape[0])
+        
+        
         # determine order of the elements' LIS parameters
         self.LISorder=np.unique(self.CRels)
         self.LISdict={}
@@ -139,6 +155,12 @@ class Model():
         self.nels = self.LISorder.shape[0]
         self.nphis=self.phis.shape[0]
         self.npoints = self.nCRpoints + self.nVRpoints + self.nGRpoints
+        
+        # for indexing purposes
+        if self.modflags['scaling']:
+            self.nexpparams = self.nphis*2
+        else:
+            self.nexpparams = self.nphis
         
         # whether each el's LIS params will have norm, alpha1, and alpha 2
         # or norm, alpha1, alpha3, p_br
@@ -234,13 +256,21 @@ class Model():
                 for index in self.match_inds[i]:
                     
                     # use that element's LIS parameters, and that experiment's phi, to get CR flux
-                    LIS_params=list(theta[self.nphis + self.LISdict[self.CRels[index]]*self.nLISparams:\
-                                     self.nphis + (self.LISdict[self.CRels[index]] + 1)*self.nLISparams])
+                    LIS_params=list(theta[self.nexpparams + self.LISdict[self.CRels[index]]*self.nLISparams:\
+                                          self.nexpparams + (self.LISdict[self.CRels[index]] + 1)*self.nLISparams])
                     if self.modflags['pl']=='br': #add universal delta parameter
                         LIS_params+=[theta[-1]]
                         
-                    crflux_ls[index]=self.crformula(LIS_params, theta[i], self.CREs[index], 
-                                                   self.CRZs[index], self.CRMs[index])
+                    # account for scaling parameter if needed
+                    if self.modflags['scaling']:
+                        current_phi = theta[2*i]
+                        current_scale = theta[2*i+1]
+                    else:
+                        current_phi = theta[i]
+                        current_scale = 1
+                        
+                    crflux_ls[index]=self.crformula(LIS_params, current_phi, self.CREs[index], 
+                                                   self.CRZs[index], self.CRMs[index])*current_scale
             
             return crflux_ls
         
@@ -264,9 +294,8 @@ class Model():
                 for i in range(len(self.GRdata)):
                     mean_mass = np.mean([ph.M_DICT[x] for x in enf.enh_els[key]])
                     
-#                     factors = 10**enf.fac_interp(np.log10(self.GREs[i]))
-                    factors=np.repeat(10,self.GREs[i].shape[0])
-                    self.CRfluxes[key] += [enf.Honda_LIS(enf.LIS_params[key], self.GREs[i]*factors)] #mean_mass*
+                    factors=np.repeat(10.,self.GREs[i].shape[0])
+                    self.CRfluxes[key] += [enf.Honda_LIS(enf.LIS_params[key], self.GREs[i]*factors)]
         
         # empty flux array (same shame as in GRdata)
         self.empty_fluxes=[np.zeros(self.GREs[i].shape) for i in range(len(self.GREs))]
@@ -284,15 +313,15 @@ class Model():
                 if CRfluxes_theta[key] == None:
                     
                     if key not in ['cno', 'mgsi']: #if the bin contains only 1 element
-                        LIS_params=list(theta[self.nphis + self.LISdict[key]*self.nLISparams:\
-                                         self.nphis + (self.LISdict[key] + 1)*self.nLISparams])
+                        LIS_params=list(theta[self.nexpparams + self.LISdict[key]*self.nLISparams:\
+                                              self.nexpparams + (self.LISdict[key] + 1)*self.nLISparams])
                         if self.modflags['pl']=='br': #add universal delta parameter
                             LIS_params+=[theta[-1]]
                         
                         # enhancement factors given w.r.t. positive spectral ind.
                         # if beta pl, this will be momentum (higher-energy) index
                         # if broken pl, this will be first (higher-energy) index
-                        CRinds_theta[key] = -LIS_params[1] 
+                        CRinds_theta[key] = -LIS_params[1]
                         
                         CRfluxes_theta[key] = []
                         for i in range(len(self.GRdata)):
@@ -306,8 +335,8 @@ class Model():
                         flux_sum = 0
                         fluxes = [np.copy(x) for x in self.empty_fluxes] #must copy np arrays individually
                         for el in enf.enh_els[key]:
-                            LIS_params=list(theta[self.nphis + self.LISdict[el]*self.nLISparams:\
-                                             self.nphis + (self.LISdict[el] + 1)*self.nLISparams])
+                            LIS_params=list(theta[self.nexpparams + self.LISdict[el]*self.nLISparams:\
+                                                  self.nexpparams + (self.LISdict[el] + 1)*self.nLISparams])
                             if self.modflags['pl']=='br': #add universal delta parameter
                                 LIS_params+=[theta[-1]]
                             
@@ -330,8 +359,8 @@ class Model():
         # can also consider some modflag options here
         self.GRlogEgs=[np.log10(self.GREs[i]) for i in range(len(self.GREs))]
         def grfunc_pp(theta):
-            LIS_params_pp = list(theta[self.nphis + self.nLISparams*self.LISdict['h']:\
-                                  self.nphis + self.nLISparams*(self.LISdict['h']+1)])
+            LIS_params_pp = list(theta[self.nexpparams + self.nLISparams*self.LISdict['h']:\
+                                       self.nexpparams + self.nLISparams*(self.LISdict['h']+1)])
             if self.modflags['pl']=='br': #add universal delta parameter
                 LIS_params_pp+=[theta[-1]]
             return grf.get_fluxes_pp(LIS_params_pp, self.GRlogEgs, self.crformula_IS)
@@ -347,6 +376,12 @@ class Model():
         # CREATE LNLIKE FUNCTION
         
         def lnlike(theta):
+            
+            # set ams02 scaling to 1
+            if self.modflags['scaling']:
+                theta=np.array(theta)
+                theta[2*np.array(self.AMS02_inds) + 1] = 1.
+                theta=list(theta)
             
             crlike=0
             vrlike=0
@@ -388,7 +423,7 @@ class Model():
                           for i in range(len(gr_fluxes))]))
             
             # add weights
-            if modflags['weights']!=None:
+            if self.modflags['weights']!=None:
                 crlike = crlike*modflags['weights'][0]/self.nCRpoints
                 vrlike = vrlike*modflags['weights'][1]/self.nVRpoints
                 grlike = grlike*modflags['weights'][2]/self.nGRpoints
@@ -402,29 +437,38 @@ class Model():
         # force spectral indices to be negative, normalizations to be positive
         if self.modflags['priors']==0: #gaussian priors on phis
             
-            def lp_phi(theta):
-                lp= -.5*np.sum(((theta[0:self.nphis] - self.phis)/self.phierrs)**2.)
-                return lp
+            if self.modflags['scaling']: #scaling factors
+                def lp_phi(theta):
+                    lp = -.5*np.sum(((theta[0:self.nexpparams:2] - self.phis)/self.phierrs)**2.)
+                    lp+= -.5*np.sum(((theta[1:self.nexpparams:2] - self.scales)/self.scaleerrs)**2.)
+                    return lp
+            else: #no scaling factors
+                def lp_phi(theta):
+                    lp= -.5*np.sum(((theta[0:self.nphis] - self.phis)/self.phierrs)**2.)
+                    return lp
             
         elif self.modflags['priors']==1: #flat priors on phis
             
             def lp_phi(theta):
                 return 0
+            
         else:
             print("Must give valid 'priors' entry in modflags.")
             sys.exit()
         
+        
         def lnprior(theta):
+            
             for i in range(self.nels):
                 
                 # negative (high-energy, momentum) index, positive LIS norm
-                if theta[self.nphis + i*self.nLISparams + 1] >= 0 or\
-                   theta[self.nphis + i*self.nLISparams] < 0:
+                if theta[self.nexpparams + i*self.nLISparams + 1] >= 0 or\
+                   theta[self.nexpparams + i*self.nLISparams] < 0:
                     return -np.inf
                 
                 # positive break energy
                 if self.modflags['pl']=='br':
-                    if theta[self.nphis + i*self.nLISparams + 3] <= 0:
+                    if theta[self.nexpparams + i*self.nLISparams + 3] <= 0:
                         return -np.inf
                 
             # negative delta
@@ -459,13 +503,28 @@ class Model():
         
     # default start positions for the MCMC sampler
     def get_startpos(self):
-        startpos=list(self.phis)
         
-        # prevent Voyager data from starting at very small region around 0
-        for i in range(len(startpos)):
+        # add phis & scaling parameters, interlaced
+        if self.modflags['scaling']:
+            
+            startpos = np.empty((self.phis.size + self.scales.size,), dtype=self.phis.dtype)
+            startpos[0::2] = self.phis
+            startpos[1::2] = self.scales
+            
+            startpos = list(startpos)
+            
+        else: #or just phis if no scaling
+            startpos=list(self.phis)
+        
+        # prevent Voyager phis from starting at very small region around 0
+        for i in range(self.nphis):
             if 'voyager' in self.CRexps[self.match_inds[i][0]] and '2012' in self.CRexps[self.match_inds[i][0]]:
-                startpos[i] = 10.
+                if self.modflags['scaling']:
+                    startpos[2*i] = 10.
+                else:
+                    startpos[i] = 10.
         
+        # add LIS parameters
         for i in range(self.LISorder.shape[0]):
             startpos+=ph.LIS_DICT[self.LISorder[i]] #initialize at former best-fit LIS norm, index
 
@@ -492,10 +551,13 @@ class Model():
                    'b': ['norm','alpha1','alpha2'],
                    'br': ['norm','alpha1','alpha3', 'Ebr']}
         
-        # phis
         paramnames=[]
+        
+        # phis, scaling
         for i in range(self.nphis):
             paramnames+=[self.CRels[self.match_inds[i][0]]+'_'+self.CRexps[self.match_inds[i][0]]+'_phi']
+            if self.modflags['scaling']:
+                paramnames+=[self.CRels[self.match_inds[i][0]]+'_'+self.CRexps[self.match_inds[i][0]]+'_scale']
             
         # LIS params
         for i in range(self.LISorder.shape[0]):

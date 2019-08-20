@@ -25,6 +25,7 @@ LIS_DICT = {'s': [1.57423715677e-11,-2.7102],
             'c': [8.678671340299998e-12,-2.8783],
             'n': [3.0749133394999997e-12,-2.8892]}
 
+# Ek is NOT per nucleon
 # Ek in MeV --> momentum in MeV/c
 # M = number of nucleons
 def E_to_p(Ek,M):
@@ -32,7 +33,7 @@ def E_to_p(Ek,M):
     
     Etot = Ek + Em #total energy
     radical=Etot**2 - Em**2
-    if np.any(radical<0):
+    if np.any(radical<=0):
         return -np.inf
     
     p = (1/C_SI)*np.sqrt(radical)

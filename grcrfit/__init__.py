@@ -12,6 +12,6 @@ matplotlib.use('agg')
 from .main import run_fit
 from .analysis import walker_plot, corner_plot, bestfit_plot
 
-# other things the user might want
+# classes the user might want
 from .run import Run, Fitter
 from .model import Model

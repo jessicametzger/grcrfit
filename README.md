@@ -47,12 +47,28 @@ The "modflags" kwarg of run_fit is a dictionary specifying details of the model.
     
     Note that for most fits, there is so much data that the prior will have hardly any influence at all with no weighting. The default for this flag is None.
 
-- "priors" entry: 0 or 1, specifying whether to apply a gaussian (0) or flat (1) prior to the solar modulation. The Earth-based phi priors are taken from Usoskin +11 (given in the crdb data exports), and the Voyager phi prior is 0+-65 MV. Default is 0 (gaussian priors).
+- "priors" entry: 0 or 1, specifying whether to apply a gaussian (0) or flat (1) prior to the solar modulation (and, if included, scaling factors). The Earth-based phi priors are taken from Usoskin +11 (given in the crdb data exports), and the Voyager phi prior is 0+-65 MV. The scaling factor priors are all 1+-0.1. Default is 0 (gaussian priors).
+
+- "scaling" entry: True or False, specifying whether or not to add a free scaling factor to all CR experiments except AMS-02. The scaling factors are meant to account for systematic errors in each experimental setup, and experiments of the same setup and data-taking times share a scaling factor. If the "priors" entry is 0, a prior of 1+-0.1 is applied to each factor. Default is False (no scaling factors).
 
 
 # Results
 
-After running a fit, the results are saved in the walkers.dat file (a table of the lowest-temperature chain for the number of steps specified in the save_steps kwarg), and the metadata.json file (a dictionary of all kwargs, etc. needed to reproduce the run). You can use the methods in analysis.py to interpret these results. The method walker_plot() creates plots of the last N steps (N specified by the user, or default all steps in walkers.dat). The method corner_plot() creates corner plots of all solar modulation parameters together with the LIS parameter of the same respective element. The user can again provide a cutoff to only count the last N steps. The bestfit_plot() method plots the best-fit models with the data (cosmic ray and gamma ray), again allowing the user to specify a sample step cutoff for calculating median parameters. It also creates a plot of the best-fit enhancement factors. You can see how these are run in test_spl.py and test_bpl.py. The resulting plots are included in their respective folders (however, the walkers.dat file has been excluded from github since it is too large).
+After running a fit, the results are saved in these files in the run's folder named after its flag:
+
+- walkers.dat: a table of all walkers from the lowest-temperature chain's last N steps (N specified given in the save_steps kwarg).
+
+- metadata.json: a dictionary of all kwargs, etc. needed to reproduce the run.
+
+You can use these methods in analysis.py to interpret the results (all output is saved in the run's folder):
+
+- walker_plot() creates plots of the last M steps (M specified by the user in the "cutoff" kwarg, or default all steps in walkers.dat).
+
+- corner_plot() creates corner plots of all solar modulation parameters (and, if applicable, scaling parameters) together with the LIS parameter of the same respective element. The user can again choose to only include the last M steps by passing M to the "cutoff" kwarg; otherwise all steps in walkers.dat will be used).
+
+- bestfit_plot() plots the best-fit models with the data (cosmic ray and gamma ray), again allowing the user to specify a sample step cutoff for calculating median parameters for the best-fit. It also creates a plot of the best-fit enhancement factors.
+
+You can see how these are run in the test_spl.py, etc. scripts. The resulting plots are included in their respective folders (however, the walkers.dat file has been excluded from github since it is too large).
 
 
 # Citations

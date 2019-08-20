@@ -38,18 +38,17 @@ def get_metadata(flag):
 # get & format data from fdict, into "standard" format for Model class argument
 # each element must have its own file!
 def get_data(fdict):
-#     dtypes = list(fdict.keys())
-#     dtypes.sort()
+    
+    dtypes = list(fdict.keys())
+    dtypes.sort()
     
     data = {}
-    for dtype in fdict:
-#     for dtype in dtypes:
+    for dtype in dtypes:
         
-#         files=list(fdict[dtypes])
-#         files.sort()
+        files=list(fdict[dtype].keys())
+        files.sort()
         
-        for fkey in fdict[dtype]:
-#         for fkey in files:
+        for fkey in files:
 
             # open complete USINE file as arr of strings
             el_data=h.lstoarr([x.lower() for x in h.open_stdf(fkey)],None)
@@ -154,7 +153,7 @@ class Fitter:
     
     # Initialize the Fitter object
     def __init__(self, data, nsteps=5000, nwalkers=None, PT=True, ntemps=10, processes=None, rerun=False, flag=None,\
-                 modflags = {'pl': 's', 'enh': 0, 'weights': None, 'priors': 0}):
+                 modflags = {'pl': 's', 'enh': 0, 'weights': None, 'priors': 0, 'scaling': False}):
         
         self.data=data
         self.nsteps=nsteps
@@ -165,6 +164,18 @@ class Fitter:
         self.rerun=rerun
         self.flag=flag
         self.processes=processes
+        
+        # fill in missing modflag keys with defaults
+        try: test=self.modflags['pl']
+        except KeyError: self.modflags['pl'] = 's'
+        try: test=self.modflags['enh']
+        except KeyError: self.modflags['enh'] = 0
+        try: test=self.modflags['weights']
+        except KeyError: self.modflags['weights'] = None
+        try: test=self.modflags['priors']
+        except KeyError: self.modflags['priors'] = 0
+        try: test=self.modflags['scaling']
+        except KeyError: self.modflags['scaling'] = False
         
         # create Model object w/MCMC helper functions
         self.myModel = Model(self.modflags, self.data)

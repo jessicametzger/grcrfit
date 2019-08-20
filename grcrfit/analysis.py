@@ -30,6 +30,11 @@ def get_walker_data(flag, cutoff=0):
     data=data[cutoff:]
     data=np.array([x.split(',') for x in data]).astype(np.float)
     
+    # set the AMS02 scale to 1 as was done in fitting
+    AMS02_scale = [i for i in range(names.shape[0]) if 'ams02' in names[i].lower() and 'scale' in names[i].lower()]
+    if len(AMS02_scale)!=0:
+        data[:,AMS02_scale[0]] = 1.
+    
     return [names[2:],data]
 
 
@@ -58,6 +63,10 @@ def walker_plot(flag,cutoff=0):
     
     # plot
     for i in range(data.shape[-1]):
+        
+        # don't plot filler ams02 steps
+        if 'ams02' in names[i].lower() and 'scale' in names[i].lower(): continue
+        
         for j in range(data.shape[0]):
             plt.plot(range(data[j,:,i].shape[0]),data[j,:,i],ls='',marker=',',ms=.1)
         plt.title(names[i].replace('_',', ').upper())
@@ -75,24 +84,63 @@ def corner_plot(flag, cutoff=0):
     names,data = get_walker_data(flag, cutoff=cutoff)
     data=data[:,2:]
     
-    # get param names
+    # get param indices
     phi_params = [i for i in range(names.shape[0]) if 'phi' in names[i].lower()]
-    LIS_params = [i for i in range(names.shape[0]) if i not in phi_params]
+    LIS_params = [i for i in range(names.shape[0]) if 'phi' not in names[i].lower() and\
+                 'scale' not in names[i].lower()]
     
-    # corner plot of each phi vs. all its corresponding LIS params
+    # find out if scaling used
+    metadata = run.get_metadata(flag)
+    try: scaling = metadata['modflags']['scaling']
+    except KeyError: scaling = False
+    
+    if scaling:
+        scale_params = [i for i in range(names.shape[0]) if 'scale' in names[i].lower()]
+    
+    
+    # corner plot of all LIS params together:
+    current_inds = np.array(LIS_params)
+    plot_data = np.copy(data[:,current_inds])
+
+    # scale up LIS norm so it doesn't just say "0.0"
+    norm_inds = np.array([i for i in range(len(LIS_params)) if 'norm' in names[LIS_params[i]].lower()])
+    plot_data[:,norm_inds] = plot_data[:,norm_inds]*1e9
+    plot_labels = np.copy(names[current_inds])
+    plot_labels[norm_inds] = np.array([x+'*1e9' for x in plot_labels[norm_inds]])
+
+    plot_labels = [re.sub(r'\(.+?\)', '', plot_labels[j]) for j in range(plot_labels.shape[0])]
+
+    # plot & save figure
+    corner.corner(plot_data, labels=plot_labels, show_titles=True, quantiles=[.16,.5,.84])
+    plt.savefig(path+flag+'/LIS_params_corner.png')
+    plt.clf()
+    plt.close()
+    
+    
+    # corner plot of each phi vs. all its corresponding LIS params:
     for i in range(len(phi_params)):
         
         # get inds of parameters to use
-        phi_name=names[i].strip()
+        phi_name=names[phi_params[i]].strip()
+        
+        # LIS params for that element
         el_inds=[LIS_params[j] for j in range(len(LIS_params)) if\
                  phi_name[0:2]==names[LIS_params[j]].strip()[0:2]]
-        current_inds=np.array(el_inds + [i])
+        
+        # all indices (LIS, phi(, scale)) for that element/exp; don't plot ams02 filler steps
+        current_inds = el_inds + [phi_params[i]]
+        if scaling and 'ams02' not in phi_name.lower():
+            current_inds += [scale_params[i]]
+            
+        current_inds=np.array(current_inds)
 
-        # scale up LIS norm so it doesn't just say "0.0"
         plot_data = np.copy(data[:,current_inds])
+        
+        # scale up LIS norm so it doesn't just say "0.0"
         plot_data[:,0] = plot_data[:,0]*1e9
         plot_labels = np.copy(names[current_inds])
         plot_labels[0] = plot_labels[0]+'*1e9'
+        
         plot_labels = [re.sub(r'\(.+?\)', '', plot_labels[j]) for j in range(plot_labels.shape[0])]
         
         # plot & save figure
@@ -197,8 +245,7 @@ def bestfit_plot(flag, cutoff=0):
             current_el=[]
             for j in range(len(myModel.GREs)):
                 # GR energy is some factor smaller than CR energy; take from Mori 1997
-#                 factors=10**enf.fac_interp(np.log10(myModel.GREs[j]))
-                factors=np.repeat(10,myModel.GREs[j].shape[0])
+                factors=np.repeat(10.,myModel.GREs[j].shape[0])
                 current_el+=[ph.E_to_p(myModel.GREs[j]*ph.M_DICT[subkey]*factors, ph.M_DICT[subkey])]
             myModel.CRp_atGRE[key][subkey] = current_el
     myModel.CRfluxes={'h': None, 'he': None, 'cno': None, 'mgsi': None, 'fe': None}
@@ -208,9 +255,9 @@ def bestfit_plot(flag, cutoff=0):
             for i in range(len(myModel.GREs)):
                 mean_mass = np.mean([ph.M_DICT[x] for x in enf.enh_els[key]])
                 
-#                 factors=10**enf.fac_interp(np.log10(myModel.GREs[i]))
-                factors=np.repeat(10,myModel.GREs[i].shape[0])
-                myModel.CRfluxes[key] += [enf.Honda_LIS(enf.LIS_params[key], myModel.GREs[i]*factors)] #mean_mass*
+                # GR to CR energy
+                factors=np.repeat(10.,myModel.GREs[i].shape[0])
+                myModel.CRfluxes[key] += [enf.Honda_LIS(enf.LIS_params[key], myModel.GREs[i]*factors)]
     myModel.empty_fluxes=[np.zeros(myModel.GREs[i].shape) for i in range(len(myModel.GREs))]
     myModel.GRlogEgs=[np.log10(myModel.GREs[i]) for i in range(len(myModel.GREs))]
     myModel.ebr_fluxes = myModel.ebrfunc()
@@ -306,7 +353,12 @@ def bestfit_plot(flag, cutoff=0):
     
     plt.errorbar(myModel.phitimes[inds], myModel.phis[inds], yerr=myModel.phierrs[inds], color='black',
                  marker='o', markersize=6, label='Usoskin +11')
-    plt.errorbar(myModel.phitimes[inds], params[0:myModel.phis.shape[0]][inds], yerr=paramerrs[0:myModel.phis.shape[0]][inds],
+    
+    if myModel.modflags['scaling']:
+        inds1=inds*2
+    else:
+        inds1=inds
+    plt.errorbar(myModel.phitimes[inds], params[0:myModel.phis.shape[0]*2][inds1], yerr=paramerrs[0:myModel.phis.shape[0]][inds],
                  color='blue', marker='o', markersize=6, label='best-fit')
     
     plt.ylim(bottom=min(np.amin(myModel.phis),np.amin(params[0:myModel.phis.shape[0]]))*1.1)
