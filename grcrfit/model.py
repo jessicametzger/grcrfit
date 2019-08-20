@@ -202,7 +202,8 @@ class Model():
                 for j in range(len(self.GREs)):
                     
                     # GR energy is some factor smaller than CR energy; take from Mori 1997
-                    factors = 10**enf.fac_interp(np.log10(self.GREs[i]))
+#                     factors = 10**enf.fac_interp(np.log10(self.GREs[i]))
+                    factors=np.repeat(10,self.GREs[i].shape[0])
                     current_el+=[ph.E_to_p(self.GREs[i]*ph.M_DICT[subkey]*factors, ph.M_DICT[subkey])]
                     
                 self.CRp_atGRE[key][subkey] = current_el
@@ -263,8 +264,9 @@ class Model():
                 for i in range(len(self.GRdata)):
                     mean_mass = np.mean([ph.M_DICT[x] for x in enf.enh_els[key]])
                     
-                    factors = 10**enf.fac_interp(np.log10(self.GREs[i]))
-                    self.CRfluxes[key] += [enf.Honda_LIS(enf.LIS_params[key], self.GREs[i]*mean_mass*factors)]
+#                     factors = 10**enf.fac_interp(np.log10(self.GREs[i]))
+                    factors=np.repeat(10,self.GREs[i].shape[0])
+                    self.CRfluxes[key] += [enf.Honda_LIS(enf.LIS_params[key], self.GREs[i]*factors)] #mean_mass*
         
         # empty flux array (same shame as in GRdata)
         self.empty_fluxes=[np.zeros(self.GREs[i].shape) for i in range(len(self.GREs))]
@@ -414,6 +416,8 @@ class Model():
         
         def lnprior(theta):
             for i in range(self.nels):
+                
+                # negative (high-energy, momentum) index, positive LIS norm
                 if theta[self.nphis + i*self.nLISparams + 1] >= 0 or\
                    theta[self.nphis + i*self.nLISparams] < 0:
                     return -np.inf

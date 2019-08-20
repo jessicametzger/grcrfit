@@ -197,7 +197,8 @@ def bestfit_plot(flag, cutoff=0):
             current_el=[]
             for j in range(len(myModel.GREs)):
                 # GR energy is some factor smaller than CR energy; take from Mori 1997
-                factors=10**enf.fac_interp(np.log10(myModel.GREs[j]))
+#                 factors=10**enf.fac_interp(np.log10(myModel.GREs[j]))
+                factors=np.repeat(10,myModel.GREs[j].shape[0])
                 current_el+=[ph.E_to_p(myModel.GREs[j]*ph.M_DICT[subkey]*factors, ph.M_DICT[subkey])]
             myModel.CRp_atGRE[key][subkey] = current_el
     myModel.CRfluxes={'h': None, 'he': None, 'cno': None, 'mgsi': None, 'fe': None}
@@ -207,8 +208,9 @@ def bestfit_plot(flag, cutoff=0):
             for i in range(len(myModel.GREs)):
                 mean_mass = np.mean([ph.M_DICT[x] for x in enf.enh_els[key]])
                 
-                factors=10**enf.fac_interp(np.log10(myModel.GREs[i]))
-                myModel.CRfluxes[key] += [enf.Honda_LIS(enf.LIS_params[key], myModel.GREs[i]*mean_mass*factors)]
+#                 factors=10**enf.fac_interp(np.log10(myModel.GREs[i]))
+                factors=np.repeat(10,myModel.GREs[i].shape[0])
+                myModel.CRfluxes[key] += [enf.Honda_LIS(enf.LIS_params[key], myModel.GREs[i]*factors)] #mean_mass*
     myModel.empty_fluxes=[np.zeros(myModel.GREs[i].shape) for i in range(len(myModel.GREs))]
     myModel.GRlogEgs=[np.log10(myModel.GREs[i]) for i in range(len(myModel.GREs))]
     myModel.ebr_fluxes = myModel.ebrfunc()
