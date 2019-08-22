@@ -19,7 +19,7 @@ Fit local cosmic ray & glamma ray fluxes, all in one go. We use MCMC (through Py
 Python 3 & everything that comes with it, numpy, emcee, tqdm, scipy, corner.
 
 
-# Basic run_fit instructions
+# Running fits
 
 Runs are performed as demonstrated in test_spl.py, test_bpl.py, and test_brpl.py. Typically, the user will work in the grcrfit package directory and will execute in Python:
 
@@ -49,24 +49,26 @@ The "modflags" kwarg of run_fit is a dictionary specifying details of the model.
 
 - "priors" entry: 0 or 1, specifying whether to apply a gaussian (0) or flat (1) prior to the solar modulation (and, if included, scaling factors). The Earth-based phi priors are taken from Usoskin +11 (given in the crdb data exports), and the Voyager phi prior is 0+-65 MV. The scaling factor priors are all 1+-0.1. Default is 0 (gaussian priors).
 
-- "scaling" entry: True or False, specifying whether or not to add a free scaling factor to all CR experiments except AMS-02. The scaling factors are meant to account for systematic errors in each experimental setup, and experiments of the same setup and data-taking times share a scaling factor. If the "priors" entry is 0, a prior of 1+-0.1 is applied to each factor. Default is False (no scaling factors).
+- "crscaling" entry: True or False, specifying whether or not to add a free scaling factor to all CR experiments except AMS-02. The scaling factors are meant to account for systematic errors in each experimental setup, and experiments of the same setup and data-taking times share a scaling factor. If the "priors" entry is 0, a prior of 1+-0.1 is applied to each factor. Default is False (no CR scaling factors).
+
+- "grscaling" entry: True or False, specifying whether or not to add a free scaling factor to all GR experiments. Same prior as in "crscaling". Default is False (no GR scaling factors).
 
 
-# Results
+# Getting results
 
 After running a fit, the results are saved in these files in the run's folder named after its flag:
 
-- walkers.dat: a table of all walkers from the lowest-temperature chain's last N steps (N specified given in the save_steps kwarg).
+- walkers.dat: a table of all walkers from the lowest-temperature chain's last N steps (N specified given in the save_steps kwarg of the run_fit method).
 
 - metadata.json: a dictionary of all kwargs, etc. needed to reproduce the run.
 
 You can use these methods in analysis.py to interpret the results (all output is saved in the run's folder):
 
-- walker_plot() creates plots of the last M steps (M specified by the user in the "cutoff" kwarg, or default all steps in walkers.dat).
+- walker_plot() creates plots of the last M/nwalkers steps (M specified by the user in the "cutoff" kwarg, or as a default all steps in walkers.dat).
 
-- corner_plot() creates corner plots of all solar modulation parameters (and, if applicable, scaling parameters) together with the LIS parameter of the same respective element. The user can again choose to only include the last M steps by passing M to the "cutoff" kwarg; otherwise all steps in walkers.dat will be used).
+- corner_plot() creates corner plots of all solar modulation parameters (and, if applicable, scaling parameters) together with the LIS parameter of the same respective element. The user can again choose to only include the last M/nwalkers steps by passing M to the "cutoff" kwarg; otherwise all steps in walkers.dat will be used).
 
-- bestfit_plot() plots the best-fit models with the data (cosmic ray and gamma ray), again allowing the user to specify a sample step cutoff for calculating median parameters for the best-fit. It also creates a plot of the best-fit enhancement factors.
+- bestfit_plot() plots the best-fit models with the data (cosmic ray and gamma ray), again allowing the user to specify a sampling cutoff M for calculating median parameters for the best-fit using the last M/nwalkers steps. It also creates a plot of the best-fit enhancement factors.
 
 You can see how these are run in the test_spl.py, etc. scripts. The resulting plots are included in their respective folders (however, the walkers.dat file has been excluded from github since it is too large).
 
@@ -78,6 +80,8 @@ CR data: http://lpsc.in2p3.fr/crdb/ & references therein
 GR data: https://ui.adsabs.harvard.edu/abs/2015ApJ...806..240C/abstract
 
 Enhancement factors: https://ui.adsabs.harvard.edu/abs/2014ApJ...789..136K/abstract
+
+Gamma ray production: https://ui.adsabs.harvard.edu/abs/2006ApJ...647..692K/abstract
 
 Electron-bremsstrahlung data: https://ui.adsabs.harvard.edu/abs/2018MNRAS.475.2724O/abstract
 

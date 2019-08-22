@@ -70,15 +70,22 @@ abund_rats=np.array([1,0.096,1.38e-3,2.11e-4,3.25e-5])
 # CRfluxes is dict of 5 lists (length=len(GRdata)) of flux arrs at GRdata energies
 # CRinds is dict of 5 alphas (positive)
 # CRfluxes/inds keys are same as enh_els
-def enh(enhtype, enh_fs, GREs, CRfluxes, CRinds):
+def enh(enhtype, ext, enh_fs, GREs, CRfluxes, CRinds):
     intplr=interps[enhtype]
     
     for k in range(len(GREs)):
         E=np.copy(GREs[k])
         logE = np.log10(E)
         
+        # assume the 1 GeV enhancement values at lower energies
+        if not ext:
+            first_ind = np.where(logE >= 0)[0][0]
+            logE = logE[first_ind:]
+        else:
+            first_ind = 0
+        
         for i in range(len(enh_els_ls)): #loop over projectile species
-            current_proj_flux=np.copy(np.array(CRfluxes[enh_els_ls[i]][k]))
+            current_proj_flux=np.copy(np.array(CRfluxes[enh_els_ls[i]][k]))[first_ind:]
             
             for j in range(2): #loop over target species
                 current_intplr = intplr[j*5 + i]
@@ -95,7 +102,10 @@ def enh(enhtype, enh_fs, GREs, CRfluxes, CRinds):
                 
                 # add contribution of current projectile-target interaction
                 contribution = abund_rats[j]*mult_ratio*flux_ratio
-                enh_fs[k] += contribution
+                enh_fs[k][first_ind:] += contribution
+                
+                # fill in extrapolated values
+                enh_fs[k][0:first_ind] = enh_fs[k][first_ind]
     
     return enh_fs
     

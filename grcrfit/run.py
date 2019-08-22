@@ -18,6 +18,28 @@ from .model import Model
 
 path = os.getcwd()+'/'
 
+# open & read walker file for plotting, interpretation
+# returns names too
+def get_walker_data(flag, cutoff=0):
+    
+    f=open(path+flag+'/walkers.dat','r')
+    data=f.readlines()
+    f.close()
+    
+    # param names
+    names=np.array(data[0].split(','))
+    
+    data=[x for x in data if x[0]!='#']
+    data=data[cutoff:]
+    data=np.array([x.split(',') for x in data]).astype(np.float)
+    
+    # set the AMS02 scale to 1 as was done in fitting
+    AMS02_scale = [i for i in range(names.shape[0]) if 'ams02' in names[i].lower() and 'scale' in names[i].lower()]
+    if len(AMS02_scale)!=0:
+        data[:,AMS02_scale[0]] = 1.
+    
+    return [names[2:],data]
+
 # open & read metadata file
 # return metadata needed for reconstructing model
 def get_metadata(flag):
@@ -31,6 +53,15 @@ def get_metadata(flag):
     # only take one key; they should all be same
     try: metadata=metadata['run0']
     except KeyError: return {}
+    
+    try: test=metadata['modflags']['crscaling']
+    except KeyError: metadata['modflags']['crscaling']=False
+    try: test=metadata['modflags']['grscaling']
+    except KeyError: metadata['modflags']['grscaling']=False
+    try: test=metadata['modflags']['fixd']
+    except KeyError: metadata['modflags']['fixd']=None
+    try: test=metadata['modflags']['enhext']
+    except KeyError: metadata['modflags']['enhext']=False
 
     return metadata
 
@@ -153,7 +184,8 @@ class Fitter:
     
     # Initialize the Fitter object
     def __init__(self, data, nsteps=5000, nwalkers=None, PT=True, ntemps=10, processes=None, rerun=False, flag=None,\
-                 modflags = {'pl': 's', 'enh': 0, 'weights': None, 'priors': 0, 'scaling': False}):
+                 modflags = {'pl': 's', 'enh': 0, 'weights': None, 'priors': 0, 'crscaling': False,
+                             'grscaling': False, 'fixd': None, 'enhext': False}):
         
         self.data=data
         self.nsteps=nsteps
@@ -174,8 +206,14 @@ class Fitter:
         except KeyError: self.modflags['weights'] = None
         try: test=self.modflags['priors']
         except KeyError: self.modflags['priors'] = 0
-        try: test=self.modflags['scaling']
-        except KeyError: self.modflags['scaling'] = False
+        try: test=self.modflags['crscaling']
+        except KeyError: self.modflags['crscaling'] = False
+        try: test=self.modflags['grscaling']
+        except KeyError: self.modflags['grscaling'] = False
+        try: test=self.modflags['fixd']
+        except KeyError: self.modflags['fixd'] = None
+        try: test=self.modflags['enhext']
+        except KeyError: self.modflags['enhext'] = False
         
         # create Model object w/MCMC helper functions
         self.myModel = Model(self.modflags, self.data)
@@ -255,8 +293,9 @@ class Fitter:
 class Run:
     
     # Initialize Run object
-    def __init__(self, flag, fdict, rerun=False, modflags={'pl': 's', 'enh': 0, 'weights': None, 'priors': 0},
-                nwalkers=None):
+    def __init__(self, flag, fdict, rerun=False, nwalkers=None,
+                 modflags = {'pl': 's', 'enh': 0, 'weights': None, 'priors': 0, 'crscaling': False,
+                             'grscaling': False, 'fixd': None, 'enhext': False}):
         
         self.metadata={}
         self.metadata['rerun'] = rerun
@@ -305,7 +344,8 @@ class Run:
         # create the Fitter object with the given configuration
         self.myFitter = Fitter(self.data, nsteps=self.metadata['nsteps'], nwalkers=self.metadata['nwalkers'],\
                                PT=self.metadata['PT'], ntemps=self.metadata['ntemps'],flag=self.metadata['flag'], 
-                               rerun=self.metadata['rerun'],processes=self.metadata['processes'], modflags=self.metadata['modflags'])
+                               rerun=self.metadata['rerun'],processes=self.metadata['processes'],
+                               modflags=self.metadata['modflags'])
         
         # execute the fit
         self.myFitter.execute_fit()
@@ -361,9 +401,28 @@ class Run:
         # only write lowest temperature
         if self.metadata['PT']:
             myChain=myChain[0,...]
+        
+        # if rerun, add old steps to beginning of chain
+        if self.metadata['rerun']:
             
+            names,old_data = get_walker_data(self.metadata['flag'])
+
+            # walker IDs
+            walkers=np.unique(old_data[:,1])
+
+            # collate data by walker. shape is (walkers,steps,dim), as in sampler chain
+            new_arrs=[]
+            for i in range(walkers.shape[0]):
+                new_arrs+=[old_data[np.where(old_data[:,1]==walkers[i])[0],:]]
+            old_data=np.stack(new_arrs)
+            old_data=data[:,:,2:]
+            
+            # add the old chain to the new chain
+            myChain = np.concatenate((old_data, myChain), axis=1)
+        
+        
         # which steps to record?
-        # - last min(nsteps, save_steps). If rerun, remove existing
+        # - last min(nsteps, save_steps)
         start_ind=int(max(myChain.shape[1]-save_steps, 0))
         
         wf=open(self.wkfilep,'w')

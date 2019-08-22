@@ -15,28 +15,6 @@ from . import helpers as h
 
 path = os.getcwd()+'/'
 
-# open & read walker file for plotting, interpretation
-# returns names too
-def get_walker_data(flag, cutoff=0):
-    
-    f=open(path+flag+'/walkers.dat','r')
-    data=f.readlines()
-    f.close()
-    
-    # param names
-    names=np.array(data[0].split(','))
-    
-    data=[x for x in data if x[0]!='#']
-    data=data[cutoff:]
-    data=np.array([x.split(',') for x in data]).astype(np.float)
-    
-    # set the AMS02 scale to 1 as was done in fitting
-    AMS02_scale = [i for i in range(names.shape[0]) if 'ams02' in names[i].lower() and 'scale' in names[i].lower()]
-    if len(AMS02_scale)!=0:
-        data[:,AMS02_scale[0]] = 1.
-    
-    return [names[2:],data]
-
 
 # given 2d array of parameter samples (indexed by step, paramID),
 # return the mean & stddev of each parameter
@@ -49,7 +27,7 @@ def get_best_fit(data):
 # saves plots in the run's directory (given by its flag), filename = "param#_walkers.png"
 def walker_plot(flag,cutoff=0):
     
-    names,data = get_walker_data(flag,cutoff=cutoff)
+    names,data = run.get_walker_data(flag,cutoff=cutoff)
     
     # walker IDs
     walkers=np.unique(data[:,1])
@@ -64,12 +42,13 @@ def walker_plot(flag,cutoff=0):
     # plot
     for i in range(data.shape[-1]):
         
-        # don't plot filler ams02 steps
+        # don't plot filler ams02 scaling steps (it's set to 1 during model construction)
         if 'ams02' in names[i].lower() and 'scale' in names[i].lower(): continue
         
         for j in range(data.shape[0]):
             plt.plot(range(data[j,:,i].shape[0]),data[j,:,i],ls='',marker=',',ms=.1)
         plt.title(names[i].replace('_',', ').upper())
+        plt.xlim(0,data[j,:,i].shape[0]-1)
         plt.savefig(path+flag+'/param'+str(i)+'_walkers.png')
         plt.clf()
     
@@ -81,20 +60,20 @@ def walker_plot(flag,cutoff=0):
 def corner_plot(flag, cutoff=0):
     
     # get walker data
-    names,data = get_walker_data(flag, cutoff=cutoff)
+    names,data = run.get_walker_data(flag, cutoff=cutoff)
     data=data[:,2:]
     
     # get param indices
     phi_params = [i for i in range(names.shape[0]) if 'phi' in names[i].lower()]
     LIS_params = [i for i in range(names.shape[0]) if 'phi' not in names[i].lower() and\
-                 'scale' not in names[i].lower()]
+                 'cr_scale' not in names[i].lower()]
     
     # find out if scaling used
     metadata = run.get_metadata(flag)
-    try: scaling = metadata['modflags']['scaling']
-    except KeyError: scaling = False
+    try: crscaling = metadata['modflags']['crscaling']
+    except KeyError: crscaling = False
     
-    if scaling:
+    if crscaling:
         scale_params = [i for i in range(names.shape[0]) if 'scale' in names[i].lower()]
     
     
@@ -129,7 +108,7 @@ def corner_plot(flag, cutoff=0):
         
         # all indices (LIS, phi(, scale)) for that element/exp; don't plot ams02 filler steps
         current_inds = el_inds + [phi_params[i]]
-        if scaling and 'ams02' not in phi_name.lower():
+        if crscaling and 'ams02' not in phi_name.lower():
             current_inds += [scale_params[i]]
             
         current_inds=np.array(current_inds)
@@ -169,7 +148,7 @@ def get_model(flag):
 def bestfit_plot(flag, cutoff=0):
     
     # get walker data
-    names,wdata = get_walker_data(flag, cutoff=cutoff)
+    names,wdata = run.get_walker_data(flag, cutoff=cutoff)
     nwalkers=np.unique(wdata[:,1]).shape[0]
     
     # get best-fit params from walker data
@@ -287,8 +266,10 @@ def bestfit_plot(flag, cutoff=0):
         plt.plot(myModel.CREs[i]*1e-3/ph.M_DICT[myModel.CRels[i].lower()], 
                  crfluxes[i]*(myModel.CREs[i]**2.), color='blue', 
                  label=r'model, $\chi^2$ = '+str(round(cr_chisqu[i],2)),lw=1)
-        plt.errorbar(x_axis*1e-3/ph.M_DICT[myModel.CRels[i].lower()], 
-                     myModel.CRdata[i][:,1]*(x_axis**2.), yerr=myModel.CRdata[i][:,2]*(x_axis**2.),\
+        
+        plt.errorbar(x_axis*1e-3/ph.M_DICT[myModel.CRels[i].lower()],\
+                     myModel.CRdata[i][:,1]*(x_axis**2.),\
+                     yerr=myModel.CRdata[i][:,2]*(x_axis**2.),\
                      color='black', label=r'data',marker='o',ls='',ms=4,zorder=3)
         
         # element name, first letter capitalized
@@ -312,12 +293,18 @@ def bestfit_plot(flag, cutoff=0):
     for i in range(len(grfluxes_d)):
         x_axis=myModel.GRdata[i][:,0]
         
-        # plot data/all model components
+        # plot all model components
         plt.plot(myModel.GREs[i]*1e-3, enh_f[i]*grfluxes_pp[i], color='red', label=r'model, CR',lw=1)
         plt.plot(myModel.GREs[i]*1e-3, ebrfluxes[i], color='green', label=r'model, e-br',lw=1)
         plt.plot(myModel.GREs[i]*1e-3, grfluxes[i], color='blue', 
                  label=r'model, $\chi^2$ = '+str(round(gr_chisqu[i],2)),lw=1)
-        plt.errorbar(x_axis*1e-3, myModel.GRdata[i][:,1], yerr=myModel.GRdata[i][:,2],\
+        
+        # plot data
+        #GRdata_old columns: Emean, Elow, Ehigh, value, stat-, stat+, sys-, sys+
+        xerr_up = myModel.GRdata_old[i][:,2] - myModel.GRdata_old[i][:,0]
+        xerr_down = myModel.GRdata_old[i][:,0] - myModel.GRdata_old[i][:,1]
+        xerr = np.array([xerr_down, xerr_up])*1e-3
+        plt.errorbar(x_axis*1e-3, myModel.GRdata[i][:,1], yerr=myModel.GRdata[i][:,2], xerr=xerr,\
                      color='black', label=r'data',marker='o',ls='',ms=4,zorder=3)
         
         # plot paraphernalia
@@ -354,10 +341,11 @@ def bestfit_plot(flag, cutoff=0):
     plt.errorbar(myModel.phitimes[inds], myModel.phis[inds], yerr=myModel.phierrs[inds], color='black',
                  marker='o', markersize=6, label='Usoskin +11')
     
-    if myModel.modflags['scaling']:
+    if myModel.modflags['crscaling']:
         inds1=inds*2
     else:
         inds1=inds
+        
     plt.errorbar(myModel.phitimes[inds], params[0:myModel.phis.shape[0]*2][inds1], yerr=paramerrs[0:myModel.phis.shape[0]][inds],
                  color='blue', marker='o', markersize=6, label='best-fit')
     

@@ -11,7 +11,9 @@ from .run import Run
 # modflags - see Model object
 # savesteps is how many steps to save in walkers.dat (if larger than nsteps, will be nsteps)
 def run_fit(flag, fdict, rerun=False, nsteps=5000, nwalkers=None, PT=True, ntemps=10, processes=None,
-        modflags={'pl': 's', 'enh': 0, 'weights': None, 'priors': 0, 'scaling': False}, save_steps=2000.):
+            modflags={'pl': 's', 'enh': 0, 'weights': None, 'priors': 0, 'crscaling': False,
+                      'grscaling': False, 'fixd': None, 'enhext': False},
+            save_steps=2000.):
     
     # initialize run
     myRun=Run(flag, fdict, rerun=rerun, modflags=modflags, nwalkers=nwalkers)
