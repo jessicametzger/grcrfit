@@ -26,6 +26,8 @@ def flux_spl(LIS_params, phi, E_TOA, Z, M):
     # modulate the LIS according to phi
     flux_TOA_model=ph.mod_flux(flux_IS, E_TOA, E_IS, M)
     
+    if np.any(flux_TOA_model<=0): return -np.inf
+    
     return flux_TOA_model
     
 
@@ -46,6 +48,8 @@ def flux_bpl(LIS_params, phi, E_TOA, Z, M):
     # modulate the LIS according to phi
     flux_TOA_model=ph.mod_flux(flux_IS, E_TOA, E_IS, M)
     
+    if np.any(flux_TOA_model<=0): return -np.inf
+    
     return flux_TOA_model
 
 def flux_brpl(LIS_params, phi, E_TOA, Z, M):
@@ -59,13 +63,15 @@ def flux_brpl(LIS_params, phi, E_TOA, Z, M):
 
     # construct true LIS at the same energies (momenta)
     p_br=ph.E_to_p(E_br, M)
-    flux_IS=LIS_norm*((p_IS/p_br)**(alpha1/delta) + (p_IS/p_br)**(alpha3/delta))**delta
+    flux_IS=LIS_norm*((p_IS/p_br)**(alpha1/(-delta)) + (p_IS/p_br)**(alpha3/(-delta)))**(-delta)
     
     # rescale so LIS norm can be compared btwn models at p=p_br
-    flux_IS=flux_IS*(p_br**alpha1)*(2**(-delta))
+    flux_IS=flux_IS*(p_br**alpha1)*(2**delta)
     
     # modulate the LIS according to phi
     flux_TOA_model=ph.mod_flux(flux_IS, E_TOA, E_IS, M)
+    
+    if np.any(flux_TOA_model<=0): return -np.inf
     
     return flux_TOA_model
 
@@ -79,6 +85,8 @@ def flux_spl_IS(LIS_params, p, M):
     # construct true LIS at the same energies (momenta)
     flux=LIS_norm*(p**alpha1)
     
+    if np.any(flux<=0): return -np.inf
+    
     return flux
     
 def flux_bpl_IS(LIS_params, p, M):
@@ -91,6 +99,8 @@ def flux_bpl_IS(LIS_params, p, M):
     # construct true LIS at the same energies (momenta)
     flux=LIS_norm*(p**alpha1)*(v**alpha2)
     
+    if np.any(flux<=0): return -np.inf
+    
     return flux
 
 
@@ -100,10 +110,12 @@ def flux_brpl_IS(LIS_params, p, M):
 
     # construct true LIS at the same energies (momenta)
     p_br=ph.E_to_p(E_br, M)
-    flux=LIS_norm*((p/p_br)**(alpha1/delta) + (p/p_br)**(alpha3/delta))**delta
+    flux=LIS_norm*((p/p_br)**(alpha1/(-delta)) + (p/p_br)**(alpha3/(-delta)))**(-delta)
     
     # rescale so LIS norm can be compared btwn models at p=p_br
-    flux=flux*(p_br**alpha1)*(2**(-delta))
+    flux=flux*(p_br**alpha1)*(2**delta)
+    
+    if np.any(flux<=0): return -np.inf
     
     return flux
     

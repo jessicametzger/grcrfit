@@ -54,6 +54,7 @@ def get_fluxes_pp(LIS_params_pp, GRlogEgs, crfunc):
             
             # interpolate at desired GR energies for the current Tp
             # weight by proton flux at current Tp, dTp (bin width)
-            GRfluxes[i] += interps[j](GRlogEgs[i])*Jps[j]*widths[j]
+            try: GRfluxes[i] += interps[j](GRlogEgs[i])*Jps[j]*widths[j]
+            except: return -np.inf
     
     return GRfluxes

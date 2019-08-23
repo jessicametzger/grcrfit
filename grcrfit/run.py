@@ -42,7 +42,7 @@ def get_walker_data(flag, cutoff=0):
 
 # open & read metadata file
 # return metadata needed for reconstructing model
-def get_metadata(flag):
+def get_metadata(flag,runID=0):
     
     f=open(path+flag+'/metadata.json','r')
     metadata=f.read()
@@ -50,8 +50,12 @@ def get_metadata(flag):
     
     metadata=json.loads(metadata)
     
+    # if "None" provided, return latest run's metadata
+    if runID==None:
+        runID=len(metadata)-1
+    
     # only take one key; they should all be same
-    try: metadata=metadata['run0']
+    try: metadata=metadata['run'+str(runID)]
     except KeyError: return {}
     
     try: test=metadata['modflags']['crscaling']
@@ -371,7 +375,7 @@ class Run:
     
     # log walker positions to the walkers.dat file
     # and log run metadata to the metadata.json file
-    def log_output(self, save_steps=2000):
+    def log_output(self, save_steps=1000):
         
         # WRITE METADATA DICTIONARY TO METADATA FILE
         
@@ -390,6 +394,7 @@ class Run:
         
         # add new run's metadata to new entry & save to metadata file
         old_metadata['run'+str(runs)]=self.metadata
+        old_metadata['run'+str(runs)]['run']=str(runs)
         mf=open(self.mdfilep,'w')
         json.dump(old_metadata,mf)
         mf.close()
@@ -415,7 +420,7 @@ class Run:
             for i in range(walkers.shape[0]):
                 new_arrs+=[old_data[np.where(old_data[:,1]==walkers[i])[0],:]]
             old_data=np.stack(new_arrs)
-            old_data=data[:,:,2:]
+            old_data=old_data[:,:,2:]
             
             # add the old chain to the new chain
             myChain = np.concatenate((old_data, myChain), axis=1)

@@ -439,6 +439,9 @@ class Model():
 
                 # get p-p GR fluxes at gamma data's energies
                 gr_fluxes = grfunc_pp(theta)
+                for i in range(len(gr_fluxes)):
+                    if not np.all(np.isfinite(gr_fluxes[i])):
+                        return -np.inf
 
                 # enhance p-p GR fluxes & add e-bremss data
                 for i in range(len(self.GRdata)):
@@ -513,9 +516,9 @@ class Model():
                     if theta[self.ncrparams + int(self.modflags['grscaling']) + i*self.nLISparams + 3] <= 0:
                         return -np.inf
                 
-            # negative delta
+            # positive/reasonable value delta to prevent overflow
             if self.modflags['pl']=='br' and self.modflags['fixd']==None:
-                if theta[-1]>=0: return -np.inf
+                if theta[-1]<=0.05: return -np.inf
             return lp_phi(theta)
         
         
@@ -586,7 +589,7 @@ class Model():
         
         # add delta (Strong 2015 ICRC)
         if self.modflags['pl']=='br' and self.modflags['fixd']==None:
-            startpos+=[-1.]
+            startpos+=[.5]
         
         return np.array(startpos)
         

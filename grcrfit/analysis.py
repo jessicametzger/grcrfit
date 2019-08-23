@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import corner
 import re
 import sys
+import json
 
 from . import run
 from . import model
@@ -74,8 +75,7 @@ def corner_plot(flag, cutoff=0):
     except KeyError: crscaling = False
     
     if crscaling:
-        scale_params = [i for i in range(names.shape[0]) if 'scale' in names[i].lower()]
-    
+        scale_params = [i for i in range(names.shape[0]) if 'cr_scale' in names[i].lower()]
     
     # corner plot of all LIS params together:
     current_inds = np.array(LIS_params)
@@ -95,7 +95,6 @@ def corner_plot(flag, cutoff=0):
     plt.clf()
     plt.close()
     
-    
     # corner plot of each phi vs. all its corresponding LIS params:
     for i in range(len(phi_params)):
         
@@ -104,7 +103,8 @@ def corner_plot(flag, cutoff=0):
         
         # LIS params for that element
         el_inds=[LIS_params[j] for j in range(len(LIS_params)) if\
-                 phi_name[0:2]==names[LIS_params[j]].strip()[0:2]]
+                 phi_name[0:2]==names[LIS_params[j]].strip()[0:2] or\
+                 'delta' in names[LIS_params[j]].lower()]
         
         # all indices (LIS, phi(, scale)) for that element/exp; don't plot ams02 filler steps
         current_inds = el_inds + [phi_params[i]]
@@ -206,15 +206,34 @@ def bestfit_plot(flag, cutoff=0):
     total_chisqu=np.sum(cr_chisqu) + np.sum(gr_chisqu)
     dof=myModel.nCRpoints + myModel.nVRpoints + myModel.nGRpoints - params.shape[0]
     total_chisqu_r=total_chisqu/dof
-    print("total chisqu: ",total_chisqu)
-    print("total reduced chisqu: ",total_chisqu_r)
+    
+    # log chisqu & reduced chisqu to metadata file
+    mf=open(path+flag+'/metadata.json','r')
+    md=mf.read()
+    mf.close()
+
+    # each run has its own entry, key = "run0", "run1", etc.
+    md=json.loads(md)
+    runs=len(md)-1
+    
+    # add new run's chisqu to newest entry & save to metadata file
+    md['run'+str(runs)]['chisqu'] = total_chisqu
+    md['run'+str(runs)]['rchisqu'] = total_chisqu_r
+    mf=open(path+flag+'/metadata.json','w')
+    json.dump(md,mf)
+    mf.close()
     
     # --------------------------------------------------------------------------------------------------------------
     # make x-axis finer for plotting
     # have to re-create lots of the variables - should be neater way to do this
     # this is all directly from model.py
+    xmin = 1e20
+    xmax = 0
+    for i in range(len(myModel.CREs)): #get universal min & max for plotting
+        xmin = min(xmin, np.amin(myModel.CREs[i]))
+        xmax = max(xmax, np.amax(myModel.CREs[i]))
     for i in range(len(myModel.CREs)):
-        myModel.CREs[i] = np.logspace(np.log10(np.amin(myModel.CREs[i])), np.log10(np.amax(myModel.CREs[i])), num=100)
+        myModel.CREs[i] = np.logspace(np.log10(xmin), np.log10(xmax), num=100)
     for i in range(len(myModel.GREs)):
         myModel.GREs[i] = np.logspace(np.log10(np.amin(myModel.GREs[i])), np.log10(np.amax(myModel.GREs[i])), num=100)
     myModel.CRp_atGRE = {}
@@ -256,6 +275,14 @@ def bestfit_plot(flag, cutoff=0):
     # enhance p-p GR fluxes & add e-bremss data
     for i in range(len(myModel.GRdata)):
         grfluxes[i] = enh_f[i]*grfluxes_pp[i] + ebrfluxes[i]
+                    
+        # add scaling parameter if gr scaling
+        if myModel.modflags['grscaling']:
+            scale = params[myModel.ncrparams]
+        else:
+            scale = 1
+
+        grfluxes[i] = grfluxes[i]*scale
             
     
     # CR PLOTS
@@ -362,3 +389,16 @@ def bestfit_plot(flag, cutoff=0):
     
     return
 
+# run="None" gets latest run by default
+def get_chisqu(flag,runID=None):
+    
+    md=run.get_metadata(flag,runID=runID)
+    total_chisqu = md['chisqu']
+    total_chisqu_r = md['rchisqu']
+    
+    runID = md['run']
+    
+    print(flag,'run'+str(runID),"total chisqu: ",total_chisqu)
+    print(flag,'run'+str(runID),"total reduced chisqu: ",total_chisqu_r)
+    
+    return
