@@ -145,6 +145,8 @@ class Model():
         
         # determine order of the elements' LIS parameters
         self.LISorder=np.unique(self.CRels)
+        if self.LISorder.shape[0]==0: # if no CR data, only fit hydrogen spectrum
+            self.LISorder = np.array(['h']) 
         self.LISdict={}
         for i in range(self.LISorder.shape[0]):
             self.LISdict[self.LISorder[i]] = i
@@ -248,6 +250,32 @@ class Model():
             self.crformula = crf.flux_brpl
             self.crformula_IS = crf.flux_brpl_IS
         
+        # create list of model interstellar CR fluxes, same order as data ones
+        # only used in plotting
+        def crfunc_IS(theta):
+            crflux_ls=[None] * self.CRels.shape[0]
+            for i in range(self.nphis):
+                
+                # loop thru experiments that share that phi
+                for index in self.match_inds[i]:
+                    
+                    # use that element's LIS parameters, and that experiment's phi, to get CR flux
+                    LIS_params=list(theta[self.ncrparams + int(self.modflags['grscaling']) +\
+                                          self.LISdict[self.CRels[index]]*self.nLISparams:\
+                                          self.ncrparams + int(self.modflags['grscaling']) +\
+                                          (self.LISdict[self.CRels[index]] + 1)*self.nLISparams])
+                    
+                    if self.modflags['pl']=='br': #add universal delta parameter
+                        if self.modflags['fixd']==None:
+                            LIS_params+=[theta[-1]]
+                        else:
+                            LIS_params+=[self.modflags['fixd']]
+                        
+                    crflux_ls[index]=self.crformula_IS(LIS_params, ph.E_to_p(self.CREs[index], self.CRMs[index]), 
+                                                    self.CRels[index])
+            
+            return crflux_ls
+        
         # create list of model CR fluxes, same order as data ones
         def crfunc(theta):
             crflux_ls=[None] * self.CRels.shape[0]
@@ -277,7 +305,7 @@ class Model():
                         current_scale = 1
                         
                     crflux_ls[index]=self.crformula(LIS_params, current_phi, self.CREs[index], 
-                                                   self.CRZs[index], self.CRMs[index])*current_scale
+                                                   self.CRels[index])*current_scale
             
             return crflux_ls
         
@@ -334,16 +362,19 @@ class Model():
                         # enhancement factors given w.r.t. positive spectral ind.
                         # if beta pl, this will be momentum (higher-energy) index
                         # if broken pl, this will be first (higher-energy) index
-                        CRinds_theta[key] = -LIS_params[1]
+                        CRinds_theta[key] = LIS_params[1]
                         
                         CRfluxes_theta[key] = []
                         for i in range(len(self.GRdata)):
-                            CRfluxes_theta[key] += [self.crformula_IS(LIS_params, self.CRp_atGRE[key][key][i], \
-                                                    ph.M_DICT[key]).reshape(self.GREs[i].shape)]
+                            try: 
+                                addition = self.crformula_IS(LIS_params, self.CRp_atGRE[key][key][i], key)
+                                addition = addition.reshape(self.GREs[i].shape)
+                            except: return -np.inf
+                            CRfluxes_theta[key] += [addition]
                             
                     else: #if the bin contains multiple elements
                         
-                        # alpha will be avg weighted by flux at 1 GeV; fluxes will be sum of fluxes
+                        # alpha will be avg weighted by flux at 10 GeV/n; fluxes will be sum of fluxes
                         weighted_sum = 0
                         flux_sum = 0
                         fluxes = [np.copy(x) for x in self.empty_fluxes] #must copy np arrays individually
@@ -360,19 +391,23 @@ class Model():
                                     LIS_params+=[self.modflags['fixd']]
                             
                             # add to weighted sum
-                            flux_1GeV=self.crformula_IS(LIS_params, ph.p1_DICT[el], ph.M_DICT[el])
-                            weighted_sum += (-LIS_params[1]*flux_1GeV) #enhancement factors given w.r.t. positive spectral ind.
-                            flux_sum += flux_1GeV
+                            flux_10GeVn=self.crformula_IS(LIS_params, ph.p10_DICT[el], el)
+                            weighted_sum += LIS_params[1]*flux_10GeVn #enhancement factors given w.r.t. positive spectral ind.
+                            flux_sum += flux_10GeVn
                             
                             for i in range(len(self.GREs)):
-                                addition = self.crformula_IS(LIS_params, self.CRp_atGRE[key][el][i], ph.M_DICT[el])
-                                fluxes[i] += addition.reshape(self.GREs[i].shape)
+                                try: 
+                                    addition = self.crformula_IS(LIS_params, self.CRp_atGRE[key][el][i],\
+                                                             el).reshape(self.GREs[i].shape)
+                                except: return -np.inf
+                                fluxes[i] += addition
                         
                         CRfluxes_theta[key] = fluxes
                         CRinds_theta[key] = weighted_sum/flux_sum
             
             enh_fs = [np.copy(x) for x in self.empty_fluxes]
             enh_fs = enf.enh(self.modflags['enh'], self.modflags['enhext'], enh_fs, self.GREs, CRfluxes_theta, CRinds_theta)
+            
             return enh_fs
             
         # get GR fluxes at log10 of GR energies
@@ -414,34 +449,43 @@ class Model():
             grlike=0
             
             # create CR fluxes to match all datasets
-            cr_fluxes = crfunc(theta)
-            for i in range(len(cr_fluxes)):
-                if not np.all(np.isfinite(cr_fluxes[i])):
-                    return -np.inf
-            
-            # compare CR fluxes to data
-            # do Voyager separately for weighting
             if self.nCRpoints!=0:
-                crlike = -.5*np.sum(np.array([np.sum(((cr_fluxes[i] - self.CRdata[i][:,1])/self.CRdata[i][:,2])**2.) \
-                          for i in range(len(cr_fluxes)) if i not in self.VRinds]))
-            else:
-                print("Must include CR data")
-                sys.exit()
-                
-            if self.nVRpoints!=0:
-                vrlike = -.5*np.sum(np.array([np.sum(((cr_fluxes[i] - self.CRdata[i][:,1])/self.CRdata[i][:,2])**2.) \
-                          for i in range(len(cr_fluxes)) if i in self.VRinds]))
+                cr_fluxes = crfunc(theta)
+                try:
+                    for i in range(len(cr_fluxes)):
+                        if not np.all(np.isfinite(cr_fluxes[i])):
+                            return -np.inf
+                except:
+                    return -np.inf
+
+                # compare CR fluxes to data
+                # do Voyager separately for weighting
+                if self.nCRpoints!=0:
+                    crlike = -.5*np.sum(np.array([np.sum(((cr_fluxes[i] - self.CRdata[i][:,1])/self.CRdata[i][:,2])**2.) \
+                              for i in range(len(cr_fluxes)) if i not in self.VRinds]))
+                else:
+                    print("Must include CR data")
+                    sys.exit()
+
+                if self.nVRpoints!=0:
+                    vrlike = -.5*np.sum(np.array([np.sum(((cr_fluxes[i] - self.CRdata[i][:,1])/self.CRdata[i][:,2])**2.) \
+                              for i in range(len(cr_fluxes)) if i in self.VRinds]))
             
             # add gamma-ray contribution
             if self.nGRpoints!=0:
+                
                 # get enhancement factors
                 enh_f = enhfunc(theta)
 
                 # get p-p GR fluxes at gamma data's energies
                 gr_fluxes = grfunc_pp(theta)
-                for i in range(len(gr_fluxes)):
-                    if not np.all(np.isfinite(gr_fluxes[i])):
-                        return -np.inf
+                
+                # make sure it's a list of finite numbers
+                try:
+                    for i in range(len(gr_fluxes)):
+                        if not (np.all(np.isfinite(gr_fluxes[i])) and np.all(np.isfinite(enh_f[i]))):
+                            return -np.inf
+                except: return -np.inf
 
                 # enhance p-p GR fluxes & add e-bremss data
                 for i in range(len(self.GRdata)):
@@ -485,7 +529,7 @@ class Model():
                 if self.modflags['crscaling']:
                     lp += -.5*np.sum(((theta[1:self.ncrparams:2] - self.scales)/self.scaleerrs)**2.)
                 if self.modflags['grscaling']:
-                    lp += -.5*np.sum(((theta[self.ncrparams] - 1)/0.1)**2.)
+                    lp += -.5*np.sum(((theta[self.ncrparams] - 1)/0.05)**2.)
                     
                 return lp
             
@@ -504,21 +548,63 @@ class Model():
         # also add gaussian priors
         def lnprior(theta):
             
+            # positive phis
+            if np.any(theta[0:self.ncrparams:(int(self.modflags['crscaling'])+1)] <= 0):
+                return -np.inf
+            
             for i in range(self.nels):
                 
-                # negative (high-energy, momentum) index, positive LIS norm
-                if theta[self.ncrparams + int(self.modflags['grscaling']) + i*self.nLISparams + 1] >= 0 or\
-                   theta[self.ncrparams + int(self.modflags['grscaling']) + i*self.nLISparams] < 0:
+                # positive (high-energy, momentum) index
+                if theta[self.ncrparams + int(self.modflags['grscaling']) + i*self.nLISparams + 1] < 0:
                     return -np.inf
                 
-                # positive break energy
+                # positive LIS norm
+                if theta[self.ncrparams + int(self.modflags['grscaling']) + i*self.nLISparams] < 0:
+                    return -np.inf
+                
                 if self.modflags['pl']=='br':
-                    if theta[self.ncrparams + int(self.modflags['grscaling']) + i*self.nLISparams + 3] <= 0:
+                    
+                    # high-energy index higher than low-energy one
+                    if theta[self.ncrparams + int(self.modflags['grscaling']) + i*self.nLISparams + 1] <= \
+                       theta[self.ncrparams + int(self.modflags['grscaling']) + i*self.nLISparams + 2]:
+                        return -np.inf
+                    
+                    # break energy between 0 and 300 GeV
+                    if theta[self.ncrparams + int(self.modflags['grscaling']) + i*self.nLISparams + 3] <= 0 or\
+                       theta[self.ncrparams + int(self.modflags['grscaling']) + i*self.nLISparams + 3] >= 3e5:
                         return -np.inf
                 
-            # positive/reasonable value delta to prevent overflow
+                # force params to be within limits from Strong 2015 for broken power-law model, only for Hydrogen
+                if self.modflags['priorlimits'] and self.modflags['pl']=='br' and self.LISorder[i].lower()=='h':
+                    
+                    # c/4pi n_ref,100GeV/n between ~1e-9 and ~20e-9 (# /cm^2 /s /sr /MeV)
+                    if theta[self.ncrparams + int(self.modflags['grscaling']) + i*self.nLISparams] < 5 or\
+                       theta[self.ncrparams + int(self.modflags['grscaling']) + i*self.nLISparams] > 120:
+                        return -np.inf
+                    
+                    # alpha1 between -3.5 and -2.6
+                    if theta[self.ncrparams + int(self.modflags['grscaling']) + i*self.nLISparams + 1] < 2.6 or\
+                       theta[self.ncrparams + int(self.modflags['grscaling']) + i*self.nLISparams + 1] > 3.5:
+                        return -np.inf
+                    
+                    # alpha3 between -2.7 and -2.2
+                    if theta[self.ncrparams + int(self.modflags['grscaling']) + i*self.nLISparams + 2] < 2.2 or\
+                       theta[self.ncrparams + int(self.modflags['grscaling']) + i*self.nLISparams + 2] > 2.7:
+                        return -np.inf
+                    
+                    # break energy between 1e3 and 1e5 MeV
+                    if theta[self.ncrparams + int(self.modflags['grscaling']) + i*self.nLISparams + 3] < 1e3 or\
+                       theta[self.ncrparams + int(self.modflags['grscaling']) + i*self.nLISparams + 3] > 1e5:
+                        return -np.inf
+                
+            # positive delta
             if self.modflags['pl']=='br' and self.modflags['fixd']==None:
-                if theta[-1]<=0.05: return -np.inf
+                if theta[-1]<=0: return -np.inf
+                
+                # enforce limits from Strong 2015
+                if self.modflags['priorlimits']:
+                    if theta[-1] < 0.05 or theta[-1] > 1.0: return -np.inf
+                    
             return lp_phi(theta)
         
         
@@ -540,6 +626,7 @@ class Model():
         self.lnprior=lnprior
         self.lnprob=lnprob
         self.crfunc=crfunc
+        self.crfunc_IS=crfunc_IS
         self.grfunc_pp=grfunc_pp
         self.enhfunc=enhfunc
         self.ebrfunc=ebrfunc
@@ -585,7 +672,7 @@ class Model():
             elif self.modflags['pl']=='br':
                 
                 # add ~best-fit proton values from Strong 2015 (ICRC)
-                startpos+=[-2.,5870.]
+                startpos+=[2.37,5870.]
         
         # add delta (Strong 2015 ICRC)
         if self.modflags['pl']=='br' and self.modflags['fixd']==None:

@@ -1,6 +1,6 @@
 import os
 
-# for use on cluster
+# for use on my cluster account
 if os.path.exists('/users/jmetzger/local/'):
     import sys
     sys.path = ['/users/jmetzger/local/'] + sys.path
@@ -8,9 +8,8 @@ if os.path.exists('/users/jmetzger/local/'):
 import matplotlib
 matplotlib.use('agg')
 
-# the main functions users will use
+# the main function users will use
 from .main import run_fit
-from .analysis import walker_plot, corner_plot, bestfit_plot, get_chisqu
 
 # classes the user might want
 from .run import Run, Fitter

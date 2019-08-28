@@ -44,7 +44,7 @@ interps = [interpolate.interp1d(logEgs, ds[i,:], kind='linear', fill_value='extr
 def get_fluxes_pp(LIS_params_pp, GRlogEgs, crfunc):
     
     #get proton CR flux at Tps, cancel out sr^-1, convert area^-1 units to mbarn^-1
-    Jps = crfunc(LIS_params_pp, Pps, ph.M_DICT['h'])*4*np.pi*1e-34
+    Jps = crfunc(LIS_params_pp, Pps, 'h')*4*np.pi*1e-34
     
     GRfluxes = []
     for i in range(len(GRlogEgs)):

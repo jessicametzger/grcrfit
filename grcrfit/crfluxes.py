@@ -1,9 +1,12 @@
 # functions that generate CR fluxes given LIS parameters, energy values, particle masses/charges,
 #  and sometimes solar modulation
+# flux units match data units: #/sr/s/m2/(GeV/n)
 
 import numpy as np
 
 from . import physics as ph
+
+np.seterr(all='raise')
 
 # spl = single power law
 # bpl = beta power law (p.l. w.r.t. momentum and beta)
@@ -11,65 +14,79 @@ from . import physics as ph
 
 # WITH MODULATION
 
-def flux_spl(LIS_params, phi, E_TOA, Z, M):
+def flux_spl(LIS_params, phi, E_TOA, el):
     LIS_norm, alpha1 = LIS_params
 
-    # figure out which interstellar energies/momenta you'll need
-    E_IS=ph.demod_energy(E_TOA, phi, Z)
-    p_IS=ph.E_to_p(E_IS, M)
-    if not (np.all(np.isfinite(E_IS)) and np.all(np.isfinite(p_IS))):
+    try:
+        # figure out which interstellar energies/momenta you'll need
+        E_IS=ph.demod_energy(E_TOA, phi, ph.Z_DICT[el])
+        p_IS=ph.E_to_p(E_IS, ph.M_DICT[el])
+        if not (np.all(np.isfinite(E_IS)) and np.all(np.isfinite(p_IS))):
+            return -np.inf
+
+        # construct true LIS at the same energies (momenta)
+        p_ref = ph.p10_DICT[el]
+        flux_IS=LIS_norm*((p_IS/p_ref)**(-alpha1))
+
+        # modulate the LIS according to phi
+        flux_TOA_model=ph.mod_flux(flux_IS, E_TOA, E_IS, ph.M_DICT[el])
+    except:
         return -np.inf
-
-    # construct true LIS at the same energies (momenta)
-    flux_IS=LIS_norm*(p_IS**alpha1)
-
-    # modulate the LIS according to phi
-    flux_TOA_model=ph.mod_flux(flux_IS, E_TOA, E_IS, M)
     
     if np.any(flux_TOA_model<=0): return -np.inf
     
     return flux_TOA_model
     
 
-def flux_bpl(LIS_params, phi, E_TOA, Z, M):
+def flux_bpl(LIS_params, phi, E_TOA, el):
     LIS_norm, alpha1, alpha2 = LIS_params
     
-    # figure out which interstellar energies/momenta you'll need
-    E_IS=ph.demod_energy(E_TOA, phi, Z)
-    p_IS=ph.E_to_p(E_IS, M)
-    if not (np.all(np.isfinite(E_IS)) and np.all(np.isfinite(p_IS))):
+    try:
+        # figure out which interstellar energies/momenta you'll need
+        E_IS=ph.demod_energy(E_TOA, phi, ph.Z_DICT[el])
+        p_IS=ph.E_to_p(E_IS, ph.M_DICT[el])
+        if not (np.all(np.isfinite(E_IS)) and np.all(np.isfinite(p_IS))):
+            return -np.inf
+        E_tot=ph.get_Etot(E_IS, ph.M_DICT[el])
+        v_IS=p_IS*ph.C_SI/E_tot #units: c (so this is beta)
+
+        # construct true LIS at the same energies (momenta)
+        p_ref = ph.p10_DICT[el]
+        v_ref = p_ref*ph.C_SI/(10*ph.M_DICT[el] + 931.49*ph.M_DICT[el])
+        flux_IS=LIS_norm*((p_IS/p_ref)**(-alpha1))*((v_IS/v_ref)**alpha2)
+
+        # modulate the LIS according to phi
+        flux_TOA_model=ph.mod_flux(flux_IS, E_TOA, E_IS, ph.M_DICT[el])
+    except:
         return -np.inf
-    E_tot=ph.get_Etot(E_IS, M)
-    v_IS=p_IS*ph.C_SI/E_tot #units: c (so this is beta)
-
-    # construct true LIS at the same energies (momenta)
-    flux_IS=LIS_norm*(p_IS**alpha1)*(v_IS**alpha2)
-
-    # modulate the LIS according to phi
-    flux_TOA_model=ph.mod_flux(flux_IS, E_TOA, E_IS, M)
     
     if np.any(flux_TOA_model<=0): return -np.inf
     
     return flux_TOA_model
 
-def flux_brpl(LIS_params, phi, E_TOA, Z, M):
+def flux_brpl(LIS_params, phi, E_TOA, el):
     LIS_norm, alpha1, alpha3, E_br, delta = LIS_params
 
-    # figure out which interstellar energies/momenta you'll need
-    E_IS=ph.demod_energy(E_TOA, phi, Z)
-    p_IS=ph.E_to_p(E_IS, M)
-    if not (np.all(np.isfinite(E_IS)) and np.all(np.isfinite(p_IS))):
-        return -np.inf
+    try:
+        # figure out which interstellar energies/momenta you'll need
+        E_IS=ph.demod_energy(E_TOA, phi, ph.Z_DICT[el])
+        p_IS=ph.E_to_p(E_IS, ph.M_DICT[el])
+        if not (np.all(np.isfinite(E_IS)) and np.all(np.isfinite(p_IS))):
+            return -np.inf
 
-    # construct true LIS at the same energies (momenta)
-    p_br=ph.E_to_p(E_br, M)
-    flux_IS=LIS_norm*((p_IS/p_br)**(alpha1/(-delta)) + (p_IS/p_br)**(alpha3/(-delta)))**(-delta)
-    
-    # rescale so LIS norm can be compared btwn models at p=p_br
-    flux_IS=flux_IS*(p_br**alpha1)*(2**delta)
-    
-    # modulate the LIS according to phi
-    flux_TOA_model=ph.mod_flux(flux_IS, E_TOA, E_IS, M)
+        # LIS_norm is c/4pi n_ref as in Strong 2015 but at 10 GeV/n & in USINE units
+        p_br=ph.E_to_p(E_br, ph.M_DICT[el])
+        p_ref = ph.p10_DICT[el]
+        flux=((p_IS/p_br)**(alpha1/delta) + (p_IS/p_br)**(alpha3/delta))
+        flux=flux/((p_ref/p_br)**(alpha1/delta) + (p_ref/p_br)**(alpha3/delta))
+        
+        # LIS_norm is c/4pi n_ref as in Strong 2015. Must scale units to match USINE ones
+        flux_IS = LIS_norm*(flux**(-delta))
+
+        # modulate the LIS according to phi
+        flux_TOA_model=ph.mod_flux(flux_IS, E_TOA, E_IS, ph.M_DICT[el])
+    except:
+        return -np.inf
     
     if np.any(flux_TOA_model<=0): return -np.inf
     
@@ -78,42 +95,58 @@ def flux_brpl(LIS_params, phi, E_TOA, Z, M):
 
 # BELOW - INTERSTELLAR: NO MODULATION
 
-def flux_spl_IS(LIS_params, p, M):
+def flux_spl_IS(LIS_params, p, el):
     LIS_norm, alpha1 = LIS_params
     p=np.array(p)
 
-    # construct true LIS at the same energies (momenta)
-    flux=LIS_norm*(p**alpha1)
+    try:
+        # construct true LIS at the same energies (momenta)
+        p_ref = ph.p10_DICT[el]
+        flux=LIS_norm*((p/p_ref)**(-alpha1))
+    except:
+        return -np.inf
     
     if np.any(flux<=0): return -np.inf
     
     return flux
     
-def flux_bpl_IS(LIS_params, p, M):
+def flux_bpl_IS(LIS_params, p, el):
     LIS_norm, alpha1, alpha2 = LIS_params
     p=np.array(p)
     
-    E_tot=ph.p_to_Etot(p,M)
-    v=p*ph.C_SI/E_tot #units: c (so this is beta)
+    try:
+        E_tot=ph.p_to_Etot(p,ph.M_DICT[el])
+        v=p*ph.C_SI/E_tot #units: c (so this is beta)
 
-    # construct true LIS at the same energies (momenta)
-    flux=LIS_norm*(p**alpha1)*(v**alpha2)
+        # construct true LIS at the same energies (momenta)
+        p_ref = ph.p10_DICT[el]
+        v_ref = p_ref*ph.C_SI/(10*ph.M_DICT[el] + 931.49*ph.M_DICT[el])
+        flux=LIS_norm*((p/p_ref)**(-alpha1))*((v/v_ref)**alpha2)
+    except:
+        return -np.inf
     
     if np.any(flux<=0): return -np.inf
     
     return flux
 
 
-def flux_brpl_IS(LIS_params, p, M):
+def flux_brpl_IS(LIS_params, p, el):
     LIS_norm, alpha1, alpha3, E_br, delta = LIS_params
     p=np.array(p)
 
-    # construct true LIS at the same energies (momenta)
-    p_br=ph.E_to_p(E_br, M)
-    flux=LIS_norm*((p/p_br)**(alpha1/(-delta)) + (p/p_br)**(alpha3/(-delta)))**(-delta)
-    
-    # rescale so LIS norm can be compared btwn models at p=p_br
-    flux=flux*(p_br**alpha1)*(2**delta)
+    try:
+
+        # construct true LIS at the same energies (momenta)
+        p_br=ph.E_to_p(E_br, ph.M_DICT[el])
+        p_ref = ph.p10_DICT[el]
+        flux=((p/p_br)**(alpha1/delta) + (p/p_br)**(alpha3/delta))
+        flux=flux/((p_ref/p_br)**(alpha1/delta) + (p_ref/p_br)**(alpha3/delta))
+        
+        # LIS_norm is c/4pi n_ref as in Strong 2015 but at 10 GeV/n & in USINE units
+        flux = LIS_norm*(flux**(-delta))
+
+    except:
+        return -np.inf
     
     if np.any(flux<=0): return -np.inf
     

@@ -66,13 +66,17 @@ def get_metadata(flag,runID=0):
     except KeyError: metadata['modflags']['fixd']=None
     try: test=metadata['modflags']['enhext']
     except KeyError: metadata['modflags']['enhext']=False
+    try: test=metadata['modflags']['priorlimits']
+    except KeyError: metadata['modflags']['priorlimits']=False
+    try: test=metadata['modflags']['vphi_err']
+    except KeyError: metadata['modflags']['vphi_err'] = 100.
 
     return metadata
 
 
 # get & format data from fdict, into "standard" format for Model class argument
 # each element must have its own file!
-def get_data(fdict):
+def get_data(fdict, vphi_err = 100.):
     
     dtypes = list(fdict.keys())
     dtypes.sort()
@@ -162,10 +166,10 @@ def get_data(fdict):
                 phi_err = 26.
                 dist = entry[0,-2]
 
-                # set Voyager phi to 0+-65
+                # set Voyager phi to 0+-[provided error; default 100]
                 if 'voyager1' in exp.lower() and '2012' in exp:
                     phi = 0.
-                    phi_err = 65.
+                    phi_err = vphi_err
 
                 # data array, date, phi, phi_err, distance
                 data[el_data[0,0].lower()][exp.lower()] = [entry[:,:-3], date, phi, phi_err, dist]
@@ -189,7 +193,7 @@ class Fitter:
     # Initialize the Fitter object
     def __init__(self, data, nsteps=5000, nwalkers=None, PT=True, ntemps=10, processes=None, rerun=False, flag=None,\
                  modflags = {'pl': 's', 'enh': 0, 'weights': None, 'priors': 0, 'crscaling': False,
-                             'grscaling': False, 'fixd': None, 'enhext': False}):
+                             'grscaling': False, 'fixd': None, 'enhext': False, 'priorlimits': False}):
         
         self.data=data
         self.nsteps=nsteps
@@ -218,6 +222,10 @@ class Fitter:
         except KeyError: self.modflags['fixd'] = None
         try: test=self.modflags['enhext']
         except KeyError: self.modflags['enhext'] = False
+        try: test=self.modflags['priorlimits']
+        except KeyError: self.modflags['priorlimits'] = False
+        try: test=self.modflags['vphi_err']
+        except KeyError: self.modflags['vphi_err'] = 100.
         
         # create Model object w/MCMC helper functions
         self.myModel = Model(self.modflags, self.data)
@@ -299,7 +307,8 @@ class Run:
     # Initialize Run object
     def __init__(self, flag, fdict, rerun=False, nwalkers=None,
                  modflags = {'pl': 's', 'enh': 0, 'weights': None, 'priors': 0, 'crscaling': False,
-                             'grscaling': False, 'fixd': None, 'enhext': False}):
+                             'grscaling': False, 'fixd': None, 'enhext': False, 'priorlimits': False,
+                             'vphi_err': 100.}):
         
         self.metadata={}
         self.metadata['rerun'] = rerun
@@ -330,7 +339,7 @@ class Run:
             self.metadata['nwalkers'] = nwalkers
             self.metadata['modflags'] = modflags
         
-        self.data = get_data(self.metadata['fdict'])
+        self.data = get_data(self.metadata['fdict'], vphi_err = self.metadata['modflags']['vphi_err'])
 
         return
     

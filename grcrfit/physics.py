@@ -14,16 +14,16 @@ Z_DICT = {'h': 1., '1h': 1., 'he': 2., 'c': 6., 'n': 7.,
          'o': 8., 'ne': 10., 'mg': 12., 'si': 14.,
          's': 16., 'fe': 26.}
 
-# previous best-fit LIS's for initializing sampler
-LIS_DICT = {'s': [1.57423715677e-11,-2.7102],
-            'mg': [7.93411178821e-11,-2.6272],
-            'ne': [3.23379880315e-11,-2.6513],
-            'h': [5.539805949e-12,-2.86],
-            'si': [8.34896554956e-11,-2.6589],
-            'o': [1.296202054131e-10,-2.6199],
-            'he': [3.10830363936e-11,-2.7796],
-            'c': [8.678671340299998e-12,-2.8783],
-            'n': [3.0749133394999997e-12,-2.8892]}
+# previous best-fit values
+LIS_DICT = {'s': [0.00961,2.84],
+            'mg': [0.00961,2.84],
+            'ne': [0.00961,2.84],
+            'h': [25.2,2.87],
+            'si': [0.00961,2.84],
+            'o': [0.0425,2.6],
+            'he': [1.39,2.76],
+            'c': [0.0410,2.75],
+            'n': [0.00961,2.84]}
 
 # Ek is NOT per nucleon
 # Ek in MeV --> momentum in MeV/c
@@ -53,10 +53,10 @@ def get_Etot(Ek, M):
     Em=931.49*M #mass energy
     return Ek + Em
 
-# calculate each element's momentum at Ek = 1 GeV
-p1_DICT = {}
+# calculate each element's momentum at Ek = 10 GeV/n
+p10_DICT = {}
 for key in M_DICT:
-    p1_DICT[key] = E_to_p(1*1000, M_DICT[key])
+    p10_DICT[key] = E_to_p(10*1000*M_DICT[key], M_DICT[key])
 
     
 # MODULATION PHYSICS

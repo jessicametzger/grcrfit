@@ -1,5 +1,6 @@
 import os
 import grcrfit
+from grcrfit import analysis
 
 path = os.getcwd()+'/'
 
@@ -31,24 +32,24 @@ onames=['HEAO3-C2(1979/10-1980/06)', 'ACE-CRIS(1997/08-1998/04)',
         'IMP7(1973/05-1973/12)']
 gnames=['FERMI-LAT_LOCAL_HI']
 
-# create dictionary identifying which data to use
+# create dictionary identifying which data to use; only H and He for now
 fdict={'cr': {hdata: hnames,
-              hedata: henames,
-              cdata: cnames,
-              ndata: nnames,
-              odata: onames},
+              hedata: henames},
        'gr': {gdata: gnames}}
 
-# # execute the run
-# testRun = grcrfit.run_fit('test_spl',fdict,nsteps=3000,rerun=False,processes=2,ntemps=10,
-#                 modflags={'pl': 's', 'enh': 0, 'weights': [1,.3,1], 'priors': 0})
+# execute the run
+flag='test_spl'
+testRun = grcrfit.run_fit(flag,fdict,nsteps=3000,rerun=False,processes=4,ntemps=15,
+                modflags={'pl': 's'})
 
-# # plot the last 1000 walkers
-# grcrfit.walker_plot('test_spl',cutoff=-100000)
+# plot the last 1000 walkers
+analysis.walker_plot(flag,cutoff=-100000)
 
-# # create corner plots
-# grcrfit.corner_plot('test_spl',cutoff=-100000)
+# create corner plots
+analysis.corner_plot(flag,cutoff=-100000)
 
 # create CR plots
-grcrfit.bestfit_plot('test_spl',cutoff=-100000)
+analysis.bestfit_plot(flag,cutoff=-100000)
+
+analysis.get_chisqu(flag)
 

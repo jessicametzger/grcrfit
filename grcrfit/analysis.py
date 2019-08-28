@@ -7,6 +7,7 @@ import corner
 import re
 import sys
 import json
+import time
 
 from . import run
 from . import model
@@ -21,6 +22,10 @@ path = os.getcwd()+'/'
 # return the mean & stddev of each parameter
 def get_best_fit(data):
     return [np.median(data,axis=0), np.std(data,axis=0)]
+
+# return "np.where" for where arr2 is in range of arr1
+def get_inds(arr1, arr2):
+    return np.where((arr2 >= np.amin(arr1)) & (arr2 <= np.amax(arr1)))
 
 
 # create walker plots (all params), given a run's flag.
@@ -80,12 +85,7 @@ def corner_plot(flag, cutoff=0):
     # corner plot of all LIS params together:
     current_inds = np.array(LIS_params)
     plot_data = np.copy(data[:,current_inds])
-
-    # scale up LIS norm so it doesn't just say "0.0"
-    norm_inds = np.array([i for i in range(len(LIS_params)) if 'norm' in names[LIS_params[i]].lower()])
-    plot_data[:,norm_inds] = plot_data[:,norm_inds]*1e9
     plot_labels = np.copy(names[current_inds])
-    plot_labels[norm_inds] = np.array([x+'*1e9' for x in plot_labels[norm_inds]])
 
     plot_labels = [re.sub(r'\(.+?\)', '', plot_labels[j]) for j in range(plot_labels.shape[0])]
 
@@ -114,11 +114,7 @@ def corner_plot(flag, cutoff=0):
         current_inds=np.array(current_inds)
 
         plot_data = np.copy(data[:,current_inds])
-        
-        # scale up LIS norm so it doesn't just say "0.0"
-        plot_data[:,0] = plot_data[:,0]*1e9
         plot_labels = np.copy(names[current_inds])
-        plot_labels[0] = plot_labels[0]+'*1e9'
         
         plot_labels = [re.sub(r'\(.+?\)', '', plot_labels[j]) for j in range(plot_labels.shape[0])]
         
@@ -143,7 +139,7 @@ def get_model(flag):
 
 # plot all data w/best-fit models (CR, GR, enhancement model, phi best-fit w/Usoskin values)
 # saves plots in the run's directory (given by its flag) - file format "exp#_.png" (# is kind of meaningless)
-# also print total chi squared
+# also save chi squared to metadata
 # cutoff specifies how many burn-in steps to exclude when getting median parameters
 def bestfit_plot(flag, cutoff=0):
     
@@ -159,13 +155,16 @@ def bestfit_plot(flag, cutoff=0):
     
     # Get fluxes at data energies for chi squared calculation
     
-    # CR model
-    crfluxes_d = myModel.crfunc(params)
+    crfluxes_d = []
+    if len(myModel.CRdata)!=0:
+        # CR model
+        crfluxes_d = myModel.crfunc(params)
     
     # enhancement factors
     enh_f_d = myModel.enhfunc(params)
     
     # GR model
+    grfluxes_d = []
     if len(myModel.GRdata)!=0:
 
         # get p-p GR fluxes at gamma data's energies
@@ -178,6 +177,14 @@ def bestfit_plot(flag, cutoff=0):
         # enhance p-p GR fluxes & add e-bremss data
         for i in range(len(myModel.GRdata)):
             grfluxes_d[i] = enh_f_d[i]*grfluxes_pp_d[i] + ebrfluxes_d[i]
+            
+            # add scaling parameter if gr scaling
+            if myModel.modflags['grscaling']:
+                scale = params[myModel.ncrparams]
+            else:
+                scale = 1
+
+            grfluxes_d[i] = grfluxes_d[i]*scale
     
     
     # calculate chi squared
@@ -229,11 +236,12 @@ def bestfit_plot(flag, cutoff=0):
     # this is all directly from model.py
     xmin = 1e20
     xmax = 0
-    for i in range(len(myModel.CREs)): #get universal min & max for plotting
-        xmin = min(xmin, np.amin(myModel.CREs[i]))
-        xmax = max(xmax, np.amax(myModel.CREs[i]))
+    for i in range(len(myModel.CREs)): #get universal min & max Ek/n for plotting
+        xmin = min(xmin, np.amin(myModel.CREs[i])/ph.M_DICT[myModel.CRels[i].lower()])
+        xmax = max(xmax, np.amax(myModel.CREs[i])/ph.M_DICT[myModel.CRels[i].lower()])
     for i in range(len(myModel.CREs)):
-        myModel.CREs[i] = np.logspace(np.log10(xmin), np.log10(xmax), num=100)
+        myModel.CREs[i] = np.logspace(np.log10(xmin*ph.M_DICT[myModel.CRels[i].lower()]),\
+                                      np.log10(xmax*ph.M_DICT[myModel.CRels[i].lower()]), num=100)
     for i in range(len(myModel.GREs)):
         myModel.GREs[i] = np.logspace(np.log10(np.amin(myModel.GREs[i])), np.log10(np.amax(myModel.GREs[i])), num=100)
     myModel.CRp_atGRE = {}
@@ -262,7 +270,8 @@ def bestfit_plot(flag, cutoff=0):
     # --------------------------------------------------------------------------------------------------------------
     
     # get new, finer lists of model values
-    crfluxes = myModel.crfunc(params)
+    if len(myModel.CRdata)!=0:
+        crfluxes = myModel.crfunc(params)
     enh_f = myModel.enhfunc(params)
     
     # get p-p GR fluxes at gamma data's energies
@@ -289,32 +298,37 @@ def bestfit_plot(flag, cutoff=0):
     for i in range(len(crfluxes_d)):
         x_axis=myModel.CRdata[i][:,0]
         
-        # plot
-        plt.plot(myModel.CREs[i]*1e-3/ph.M_DICT[myModel.CRels[i].lower()], 
-                 crfluxes[i]*(myModel.CREs[i]**2.), color='blue', 
-                 label=r'model, $\chi^2$ = '+str(round(cr_chisqu[i],2)),lw=1)
-        
-        plt.errorbar(x_axis*1e-3/ph.M_DICT[myModel.CRels[i].lower()],\
-                     myModel.CRdata[i][:,1]*(x_axis**2.),\
-                     yerr=myModel.CRdata[i][:,2]*(x_axis**2.),\
-                     color='black', label=r'data',marker='o',ls='',ms=4,zorder=3)
-        
-        # element name, first letter capitalized
-        proper_name=myModel.CRels[i].upper()
-        if len(proper_name)>1:
-            proper_name=proper_name[0] + proper_name[1:].lower()
-        
-        # plot paraphernalia
-        plt.title(proper_name+', '+myModel.CRexps[i].upper().replace('_',' '))
-        plt.xlabel('E [GeV/n]')
-        plt.ylabel('(flux) '+r' (E$^2$)')
-        plt.xscale('log')
-        plt.yscale('log')
-        plt.grid()
-        plt.legend()
-        plt.savefig(path+flag+'/exp'+str(i)+'_CR.png')
-        plt.clf()
-        plt.close()
+        # plot with full & cropped data range (for comparison & detail respectively)
+        inds = [lambda a,b: np.where(b==b), get_inds]
+        flags = ['', 'closeup']
+        for j in range(2):
+            
+            current_inds = inds[j](x_axis, myModel.CREs[i])
+            plt.plot(myModel.CREs[i][current_inds]*1e-3/ph.M_DICT[myModel.CRels[i].lower()], 
+                     crfluxes[i][current_inds]*(myModel.CREs[i][current_inds]**2.), 
+                     color='blue', label=r'model, $\chi^2$ = '+str(round(cr_chisqu[i],2)),lw=1)
+
+            plt.errorbar(x_axis*1e-3/ph.M_DICT[myModel.CRels[i].lower()],\
+                         myModel.CRdata[i][:,1]*(x_axis**2.),\
+                         yerr=myModel.CRdata[i][:,2]*(x_axis**2.),\
+                         color='black', label=r'data',marker='o',ls='',ms=4,zorder=3)
+
+            # element name, first letter capitalized
+            proper_name=myModel.CRels[i].upper()
+            if len(proper_name)>1:
+                proper_name=proper_name[0] + proper_name[1:].lower()
+
+            # plot paraphernalia
+            plt.title(proper_name+', '+myModel.CRexps[i].upper().replace('_',' '))
+            plt.xlabel('E [GeV/n]')
+            plt.ylabel('(flux) '+r' (E$^2$)')
+            plt.xscale('log')
+            plt.yscale('log')
+            plt.grid()
+            plt.legend()
+            plt.savefig(path+flag+'/exp'+str(i)+'_CR'+flags[j]+'.png')
+            plt.clf()
+            plt.close()
     
     # GR PLOTS
     for i in range(len(grfluxes_d)):
@@ -363,30 +377,229 @@ def bestfit_plot(flag, cutoff=0):
         plt.close()
     
     # PHI PLOTS
-    inds=myModel.phitimes.argsort()
+    if myModel.nphis!=0:
+        inds=myModel.phitimes.argsort()
+
+        plt.errorbar(myModel.phitimes[inds], myModel.phis[inds], yerr=myModel.phierrs[inds], color='black',
+                     marker='o', markersize=6, label='Usoskin +11')
+
+        if myModel.modflags['crscaling']:
+            inds1=inds*2
+        else:
+            inds1=inds
+
+        plt.errorbar(myModel.phitimes[inds], params[0:myModel.phis.shape[0]*2][inds1], yerr=paramerrs[0:myModel.phis.shape[0]][inds],
+                     color='blue', marker='o', markersize=6, label='best-fit')
+
+        plt.ylim(bottom=min(np.amin(myModel.phis),np.amin(params[0:myModel.phis.shape[0]]))*1.1)
+
+        plt.legend()
+        times=np.arange(np.amin(myModel.phitimes), np.amax(myModel.phitimes),
+                       (np.amax(myModel.phitimes) - np.amin(myModel.phitimes))/10.)
+        tlabels=['/'.join([str(int(y)) for y in h.JD_to_cal(x)[:2]]) for x in times]
+        plt.xticks(times, tlabels, rotation=45.)
+        plt.ylabel('$\phi$')
+        plt.title('Solar Modulation')
+        plt.savefig(path+flag+'/phi.png')
     
-    plt.errorbar(myModel.phitimes[inds], myModel.phis[inds], yerr=myModel.phierrs[inds], color='black',
-                 marker='o', markersize=6, label='Usoskin +11')
+    return
+
+
+# plot all data w/upper & lower 1-sigma values of model (CR, GR)
+# saves plots in the run's directory (given by its flag) - file format "exp#_range.png" (# is kind of meaningless)
+# cutoff specifies how many burn-in steps to exclude when getting param ranges
+def range_plot(flag, cutoff=0):
     
-    if myModel.modflags['crscaling']:
-        inds1=inds*2
-    else:
-        inds1=inds
+    xlength = 70
+    
+    # get walker data
+    names,wdata = run.get_walker_data(flag, cutoff=cutoff)
+    nwalkers=np.unique(wdata[:,1]).shape[0]
+    
+    # reconstruct model
+    myModel = get_model(flag)
+    
+    # Get fluxes at data energies for chi squared calculation, for each set of param values
+    # first, create lists of empty arrays that will be filled with each set of params' fluxes
+    crfluxes_all = []
+    for i in range(len(myModel.CREs)):
+        crfluxes_all += [np.zeros((wdata.shape[0],xlength))]
+    grfluxes_all = []
+    for i in range(len(myModel.GRdata)):
+        grfluxes_all += [np.zeros((wdata.shape[0],xlength))]
         
-    plt.errorbar(myModel.phitimes[inds], params[0:myModel.phis.shape[0]*2][inds1], yerr=paramerrs[0:myModel.phis.shape[0]][inds],
-                 color='blue', marker='o', markersize=6, label='best-fit')
+    for k in range(wdata.shape[0]):
+        
+        params = wdata[k,2:]
+        
+        # CR model
+        crfluxes_d = myModel.crfunc(params)
+
+        # enhancement factors
+        enh_f_d = myModel.enhfunc(params)
+
+        # GR model
+        if len(myModel.GRdata)!=0:
+
+            # get p-p GR fluxes at gamma data's energies
+            grfluxes_pp_d = myModel.grfunc_pp(params)
+            grfluxes_d = [np.copy(x) for x in grfluxes_pp_d]
+
+            # get e-bremss. fluxes
+            ebrfluxes_d = myModel.ebrfunc()
+
+            # enhance p-p GR fluxes & add e-bremss data
+            for i in range(len(myModel.GRdata)):
+                grfluxes_d[i] = enh_f_d[i]*grfluxes_pp_d[i] + ebrfluxes_d[i]
+
+                # add scaling parameter if gr scaling
+                if myModel.modflags['grscaling']:
+                    scale = params[myModel.ncrparams]
+                else:
+                    scale = 1
+
+                grfluxes_d[i] = grfluxes_d[i]*scale
     
-    plt.ylim(bottom=min(np.amin(myModel.phis),np.amin(params[0:myModel.phis.shape[0]]))*1.1)
+        # --------------------------------------------------------------------------------------------------------------
+        # make x-axis finer for plotting
+        # have to re-create lots of the variables - should be neater way to do this
+        # this is all directly from model.py
+        xmin = 1e20
+        xmax = 0
+        for i in range(len(myModel.CREs)): #get universal min & max Ek/n for plotting
+            xmin = min(xmin, np.amin(myModel.CREs[i])/ph.M_DICT[myModel.CRels[i].lower()])
+            xmax = max(xmax, np.amax(myModel.CREs[i])/ph.M_DICT[myModel.CRels[i].lower()])
+        for i in range(len(myModel.CREs)):
+            myModel.CREs[i] = np.logspace(np.log10(xmin*ph.M_DICT[myModel.CRels[i].lower()]),\
+                                          np.log10(xmax*ph.M_DICT[myModel.CRels[i].lower()]), num=xlength)
+        for i in range(len(myModel.GREs)):
+            myModel.GREs[i] = np.logspace(np.log10(np.amin(myModel.GREs[i])), np.log10(np.amax(myModel.GREs[i])), num=xlength)
+        myModel.CRp_atGRE = {}
+        for key in enf.enh_els:
+            myModel.CRp_atGRE[key]={}
+            for subkey in enf.enh_els[key]:
+                current_el=[]
+                for j in range(len(myModel.GREs)):
+                    # GR energy is some factor smaller than CR energy; take from Mori 1997
+                    factors=np.repeat(10.,myModel.GREs[j].shape[0])
+                    current_el+=[ph.E_to_p(myModel.GREs[j]*ph.M_DICT[subkey]*factors, ph.M_DICT[subkey])]
+                myModel.CRp_atGRE[key][subkey] = current_el
+        myModel.CRfluxes={'h': None, 'he': None, 'cno': None, 'mgsi': None, 'fe': None}
+        for key in enf.enh_els_ls:
+            if not all(x in myModel.fit_els for x in enf.enh_els[key]):
+                myModel.CRfluxes[key] = []
+                for i in range(len(myModel.GREs)):
+                    mean_mass = np.mean([ph.M_DICT[x] for x in enf.enh_els[key]])
+
+                    # GR to CR energy
+                    factors=np.repeat(10.,myModel.GREs[i].shape[0])
+                    myModel.CRfluxes[key] += [enf.Honda_LIS(enf.LIS_params[key], myModel.GREs[i]*factors)]
+        myModel.empty_fluxes=[np.zeros(myModel.GREs[i].shape) for i in range(len(myModel.GREs))]
+        myModel.GRlogEgs=[np.log10(myModel.GREs[i]) for i in range(len(myModel.GREs))]
+        myModel.ebr_fluxes = myModel.ebrfunc()
+        # --------------------------------------------------------------------------------------------------------------
+
+        # get new, finer lists of model values
+        crfluxes = myModel.crfunc(params)
+        
+        # save CR fluxes to list
+        for i in range(len(crfluxes)):
+            crfluxes_all[i][k,:] += crfluxes[i]
+        
+        enh_f = myModel.enhfunc(params)
+
+        # get p-p GR fluxes at gamma data's energies
+        grfluxes_pp = myModel.grfunc_pp(params)
+        grfluxes = [np.copy(x) for x in grfluxes_pp]
+
+        # get e-bremss. fluxes
+        ebrfluxes = myModel.ebrfunc()
+
+        # enhance p-p GR fluxes & add e-bremss data
+        for i in range(len(myModel.GRdata)):
+            grfluxes[i] = enh_f[i]*grfluxes_pp[i] + ebrfluxes[i]
+
+            # add scaling parameter if gr scaling
+            if myModel.modflags['grscaling']:
+                scale = params[myModel.ncrparams]
+            else:
+                scale = 1
+
+            grfluxes[i] = grfluxes[i]*scale
+            
+            grfluxes_all[i][k,:] += grfluxes[i]
     
-    plt.legend()
-    times=np.arange(np.amin(myModel.phitimes), np.amax(myModel.phitimes),
-                   (np.amax(myModel.phitimes) - np.amin(myModel.phitimes))/10.)
-    tlabels=['/'.join([str(round(y)) for y in h.JD_to_cal(x)]) for x in times]
-    plt.xticks(times, tlabels, rotation=45.)
-    plt.ylabel('$\phi$')
-    plt.title('Solar Modulation')
-    plt.savefig(path+flag+'/phi.png')
+    # CR PLOTS
+    for i in range(len(crfluxes_d)):
+        x_axis=myModel.CRdata[i][:,0]
+        
+        # plot with full & cropped data range (for comparison & detail respectively)
+        inds = [lambda a,b: np.where(b==b), get_inds]
+        flags = ['', 'closeup']
+        for j in range(2):
+            
+            current_inds = inds[j](x_axis, myModel.CREs[i])
+            
+            current_data = crfluxes_all[i][:,current_inds[0]]*(myModel.CREs[i][current_inds]**2.)
+            y1 = np.percentile(current_data, 16, axis=0)
+            y2 = np.percentile(current_data, 84, axis=0)
+            
+            plt.fill_between(myModel.CREs[i][current_inds]*1e-3/ph.M_DICT[myModel.CRels[i].lower()], 
+                     y1, y2, color='blue', label=r'model',lw=1)
+
+            plt.errorbar(x_axis*1e-3/ph.M_DICT[myModel.CRels[i].lower()],\
+                         myModel.CRdata[i][:,1]*(x_axis**2.),\
+                         yerr=myModel.CRdata[i][:,2]*(x_axis**2.),\
+                         color='black', label=r'data',marker='o',ls='',ms=4,zorder=3)
+
+            # element name, first letter capitalized
+            proper_name=myModel.CRels[i].upper()
+            if len(proper_name)>1:
+                proper_name=proper_name[0] + proper_name[1:].lower()
+
+            # plot paraphernalia
+            plt.title(proper_name+', '+myModel.CRexps[i].upper().replace('_',' '))
+            plt.xlabel('E [GeV/n]')
+            plt.ylabel('(flux) '+r' (E$^2$)')
+            plt.xscale('log')
+            plt.yscale('log')
+            plt.grid()
+            plt.legend()
+            plt.savefig(path+flag+'/exp'+str(i)+'_CR'+flags[j]+'_range.png')
+            plt.clf()
+            plt.close()
     
+    # GR PLOTS
+    for i in range(len(grfluxes_d)):
+        x_axis=myModel.GRdata[i][:,0]
+            
+        current_data = grfluxes_all[i]
+        y1 = np.percentile(current_data, 16, axis=0)
+        y2 = np.percentile(current_data, 84, axis=0)
+
+        plt.fill_between(myModel.GREs[i]*1e-3, y1, y2, color='blue', label=r'model',lw=1)
+        
+        # plot data
+        #GRdata_old columns: Emean, Elow, Ehigh, value, stat-, stat+, sys-, sys+
+        xerr_up = myModel.GRdata_old[i][:,2] - myModel.GRdata_old[i][:,0]
+        xerr_down = myModel.GRdata_old[i][:,0] - myModel.GRdata_old[i][:,1]
+        xerr = np.array([xerr_down, xerr_up])*1e-3
+        plt.errorbar(x_axis*1e-3, myModel.GRdata[i][:,1], yerr=myModel.GRdata[i][:,2], xerr=xerr,\
+                     color='black', label=r'data',marker='o',ls='',ms=4,zorder=3)
+        
+        # plot paraphernalia
+        plt.title(myModel.GRexps[i].upper().replace('_',' '))
+        plt.xlabel('E [GeV]')
+        plt.ylabel('emissivity')
+        plt.xscale('log')
+        plt.yscale('log')
+        plt.grid()
+        plt.legend()
+        plt.ylim(bottom=1e-25)
+        plt.savefig(path+flag+'/exp'+str(i)+'_GR_range.png')
+        plt.clf()
+        plt.close()
+        
     return
 
 # run="None" gets latest run by default
