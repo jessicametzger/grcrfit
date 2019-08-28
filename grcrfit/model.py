@@ -564,6 +564,10 @@ class Model():
                 
                 if self.modflags['pl']=='br':
                     
+                    # positive low-energy index
+                    if theta[self.ncrparams + int(self.modflags['grscaling']) + i*self.nLISparams + 2] <= 0:
+                        return -np.inf
+                    
                     # high-energy index higher than low-energy one
                     if theta[self.ncrparams + int(self.modflags['grscaling']) + i*self.nLISparams + 1] <= \
                        theta[self.ncrparams + int(self.modflags['grscaling']) + i*self.nLISparams + 2]:

@@ -339,6 +339,9 @@ class Run:
             self.metadata['nwalkers'] = nwalkers
             self.metadata['modflags'] = modflags
         
+        try: test=self.metadata['modflags']['vphi_err']
+        except: self.metadata['modflags']['vphi_err']=100.
+        
         self.data = get_data(self.metadata['fdict'], vphi_err = self.metadata['modflags']['vphi_err'])
 
         return
