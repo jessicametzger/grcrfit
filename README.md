@@ -53,6 +53,14 @@ The "modflags" kwarg of run_fit is a dictionary specifying details of the model.
 
 - "grscaling" entry: True or False, specifying whether or not to add a free scaling factor to all GR experiments. Same prior as in "crscaling". Default is False (no GR scaling factors).
 
+- "fixd" entry: None or positive float. For fixing the delta parameter in broken power-law fits. Can only be used when "one_d" is True (see below). Default is None (free delta if broken power-law).
+
+- "enhext" entry: True or False. Whether or not to calculate the enhancement factors below 1 GeV (gamma ray energy) or fix the value at those energies to the value at 1 GeV. Because the table in Kachelriess +14 only provides multiplication factors down to 10 GeV (and because, moreover, in broken power-law models index changes below ~1 GeV may mess up these calculations which assume a SPL), it is probably best to not extrapolate too far down. Default is False (fix to 1 GeV value).
+
+- "priorlimits" entry: True or False. Whether or not to set limits the same limits on the Hydrogen LIS parameters as in Strong 2015 (Table 1). Default is False (no limits).
+
+- "one_d" entry: True or False. Whether or not to share the delta (break softness) parameter between all element LIS's. Default is True (single shared delta).
+
 
 # Getting results
 

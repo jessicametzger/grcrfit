@@ -104,7 +104,7 @@ def corner_plot(flag, cutoff=0):
         # LIS params for that element
         el_inds=[LIS_params[j] for j in range(len(LIS_params)) if\
                  phi_name[0:2]==names[LIS_params[j]].strip()[0:2] or\
-                 'delta' in names[LIS_params[j]].lower()]
+                 ('delta'==names[LIS_params[j]].lower())]
         
         # all indices (LIS, phi(, scale)) for that element/exp; don't plot ams02 filler steps
         current_inds = el_inds + [phi_params[i]]
@@ -305,12 +305,12 @@ def bestfit_plot(flag, cutoff=0):
             
             current_inds = inds[j](x_axis, myModel.CREs[i])
             plt.plot(myModel.CREs[i][current_inds]*1e-3/ph.M_DICT[myModel.CRels[i].lower()], 
-                     crfluxes[i][current_inds]*(myModel.CREs[i][current_inds]**2.), 
+                     crfluxes[i][current_inds]*(myModel.CREs[i][current_inds]/ph.M_DICT[myModel.CRels[i].lower()])**2., 
                      color='blue', label=r'model, $\chi^2$ = '+str(round(cr_chisqu[i],2)),lw=1)
 
             plt.errorbar(x_axis*1e-3/ph.M_DICT[myModel.CRels[i].lower()],\
-                         myModel.CRdata[i][:,1]*(x_axis**2.),\
-                         yerr=myModel.CRdata[i][:,2]*(x_axis**2.),\
+                         myModel.CRdata[i][:,1]*(x_axis/ph.M_DICT[myModel.CRels[i].lower()])**2.,\
+                         yerr=myModel.CRdata[i][:,2]*(x_axis/ph.M_DICT[myModel.CRels[i].lower()])**2.,\
                          color='black', label=r'data',marker='o',ls='',ms=4,zorder=3)
 
             # element name, first letter capitalized
@@ -540,7 +540,7 @@ def range_plot(flag, cutoff=0):
             
             current_inds = inds[j](x_axis, myModel.CREs[i])
             
-            current_data = crfluxes_all[i][:,current_inds[0]]*(myModel.CREs[i][current_inds]**2.)
+            current_data = crfluxes_all[i][:,current_inds[0]]*(myModel.CREs[i][current_inds]/ph.M_DICT[myModel.CRels[i].lower()])**2.
             y1 = np.percentile(current_data, 16, axis=0)
             y2 = np.percentile(current_data, 84, axis=0)
             
@@ -548,8 +548,8 @@ def range_plot(flag, cutoff=0):
                      y1, y2, color='blue', label=r'model',lw=1)
 
             plt.errorbar(x_axis*1e-3/ph.M_DICT[myModel.CRels[i].lower()],\
-                         myModel.CRdata[i][:,1]*(x_axis**2.),\
-                         yerr=myModel.CRdata[i][:,2]*(x_axis**2.),\
+                         myModel.CRdata[i][:,1]*(x_axis/ph.M_DICT[myModel.CRels[i].lower()])**2.,\
+                         yerr=myModel.CRdata[i][:,2]*(x_axis/ph.M_DICT[myModel.CRels[i].lower()])**2.,\
                          color='black', label=r'data',marker='o',ls='',ms=4,zorder=3)
 
             # element name, first letter capitalized

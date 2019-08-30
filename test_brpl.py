@@ -37,14 +37,14 @@ fdict={'cr': {hdata: hnames,
               hedata: henames},
        'gr': {gdata: gnames}}
 
-testRun = grcrfit.run_fit('test_brpl',fdict,nsteps=4000,rerun=False,processes=32,ntemps=10,
-                modflags={'pl': 'br'})
+# testRun = grcrfit.run_fit('test_brpl',fdict,nsteps=4000,rerun=False,processes=32,ntemps=10,
+#                 modflags={'pl': 'br'})
 
-# plot the last 1000 walkers
-analysis.walker_plot('test_brpl',cutoff=-100000)
+# # plot the last 1000 walkers
+# analysis.walker_plot('test_brpl',cutoff=-100000)
 
-# create corner plots
-analysis.corner_plot('test_brpl',cutoff=-100000)
+# # create corner plots
+# analysis.corner_plot('test_brpl',cutoff=-100000)
 
 # create CR plots
 analysis.bestfit_plot('test_brpl',cutoff=-100000)

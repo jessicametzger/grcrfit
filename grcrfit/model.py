@@ -6,6 +6,7 @@
 
 import numpy as np
 import copy
+import sys
 
 from . import helpers as h
 from . import physics as ph
@@ -117,7 +118,10 @@ class Model():
             if i in self.remove_inds:
                 continue
             
-            duplicates = list(np.where((self.CRtimes == self.CRtimes[i]) & (self.CRexps == self.CRexps[i]))[0])
+            # don't count Voyager H and He as duplicates
+            duplicates = np.where((self.CRtimes == self.CRtimes[i]) & (self.CRexps == self.CRexps[i]) &\
+                         ([self.CRels[j]==self.CRels[i] or 'voyager1' not in self.CRexps[j] for j in range(self.CRels.shape[0])]))[0]
+            duplicates=list(duplicates)
             duplicates.sort()
             
             # for scaling
@@ -169,7 +173,8 @@ class Model():
         elif self.modflags['pl']=='b':
             self.nLISparams=3
         elif self.modflags['pl']=='br':
-            self.nLISparams=4
+            if self.modflags['one_d']: self.nLISparams=4
+            else: self.nLISparams=5
         else:
             print('Must give valid CR model flag')
             sys.exit()
@@ -265,7 +270,7 @@ class Model():
                                           self.ncrparams + int(self.modflags['grscaling']) +\
                                           (self.LISdict[self.CRels[index]] + 1)*self.nLISparams])
                     
-                    if self.modflags['pl']=='br': #add universal delta parameter
+                    if self.modflags['pl']=='br' and self.modflags['one_d']: #add universal delta parameter
                         if self.modflags['fixd']==None:
                             LIS_params+=[theta[-1]]
                         else:
@@ -290,7 +295,7 @@ class Model():
                                           self.ncrparams + int(self.modflags['grscaling']) +\
                                           (self.LISdict[self.CRels[index]] + 1)*self.nLISparams])
                     
-                    if self.modflags['pl']=='br': #add universal delta parameter
+                    if self.modflags['pl']=='br' and self.modflags['one_d']: #add universal delta parameter
                         if self.modflags['fixd']==None:
                             LIS_params+=[theta[-1]]
                         else:
@@ -353,7 +358,7 @@ class Model():
                                               self.ncrparams + int(self.modflags['grscaling']) +\
                                               (self.LISdict[key] + 1)*self.nLISparams])
                         
-                        if self.modflags['pl']=='br': #add universal delta parameter
+                        if self.modflags['pl']=='br' and self.modflags['one_d']: #add universal delta parameter
                             if self.modflags['fixd']==None:
                                 LIS_params+=[theta[-1]]
                             else:
@@ -384,7 +389,7 @@ class Model():
                                                   self.ncrparams + int(self.modflags['grscaling']) + \
                                                   (self.LISdict[el] + 1)*self.nLISparams])
                             
-                            if self.modflags['pl']=='br': #add universal delta parameter
+                            if self.modflags['pl']=='br' and self.modflags['one_d']: #add universal delta parameter
                                 if self.modflags['fixd']==None:
                                     LIS_params+=[theta[-1]]
                                 else:
@@ -418,7 +423,7 @@ class Model():
                                        self.ncrparams + int(self.modflags['grscaling']) + self.nLISparams*(self.LISdict['h']+1)])
             
             #add universal delta parameter
-            if self.modflags['pl']=='br':
+            if self.modflags['pl']=='br' and self.modflags['one_d']:
                 if self.modflags['fixd']==None:
                     LIS_params_pp+=[theta[-1]]
                 else:
@@ -564,7 +569,7 @@ class Model():
                 
                 if self.modflags['pl']=='br':
                     
-                    # positive low-energy index
+                    # positive low-energy index above 0
                     if theta[self.ncrparams + int(self.modflags['grscaling']) + i*self.nLISparams + 2] <= 0:
                         return -np.inf
                     
@@ -577,6 +582,16 @@ class Model():
                     if theta[self.ncrparams + int(self.modflags['grscaling']) + i*self.nLISparams + 3] <= 0 or\
                        theta[self.ncrparams + int(self.modflags['grscaling']) + i*self.nLISparams + 3] >= 3e5:
                         return -np.inf
+                    
+                    # delta above 0
+                    if self.modflags['fixd']==None:
+                        if self.modflags['one_d']:
+                            if theta[-1] <= 0:
+                                return -np.inf
+                        else:
+                            if theta[self.ncrparams + int(self.modflags['grscaling']) + i*self.nLISparams + 4] <= 0:
+                                return -np.inf
+                        
                 
                 # force params to be within limits from Strong 2015 for broken power-law model, only for Hydrogen
                 if self.modflags['priorlimits'] and self.modflags['pl']=='br' and self.LISorder[i].lower()=='h':
@@ -600,14 +615,14 @@ class Model():
                     if theta[self.ncrparams + int(self.modflags['grscaling']) + i*self.nLISparams + 3] < 1e3 or\
                        theta[self.ncrparams + int(self.modflags['grscaling']) + i*self.nLISparams + 3] > 1e5:
                         return -np.inf
-                
-            # positive delta
-            if self.modflags['pl']=='br' and self.modflags['fixd']==None:
-                if theta[-1]<=0: return -np.inf
-                
-                # enforce limits from Strong 2015
-                if self.modflags['priorlimits']:
-                    if theta[-1] < 0.05 or theta[-1] > 1.0: return -np.inf
+                    
+                    # delta between 0.05 and 1.0
+                    if not self.modflags['one_d']:
+                        if theta[self.ncrparams + int(self.modflags['grscaling']) + i*self.nLISparams + 4] < 0.05 or\
+                           theta[self.ncrparams + int(self.modflags['grscaling']) + i*self.nLISparams + 4] > 1.0:
+                            return -np.inf
+                    else:
+                        if theta[-1] < 0.05 or theta[-1] > 1.0: return -np.inf
                     
             return lp_phi(theta)
         
@@ -677,9 +692,13 @@ class Model():
                 
                 # add ~best-fit proton values from Strong 2015 (ICRC)
                 startpos+=[2.37,5870.]
+                
+                # add delta if each experiment gets their own
+                if not self.modflags['one_d']:
+                    startpos+=[0.5]
         
         # add delta (Strong 2015 ICRC)
-        if self.modflags['pl']=='br' and self.modflags['fixd']==None:
+        if self.modflags['pl']=='br' and self.modflags['fixd']==None and self.modflags['one_d']:
             startpos+=[.5]
         
         return np.array(startpos)
@@ -705,8 +724,11 @@ class Model():
         # LIS params
         for i in range(self.LISorder.shape[0]):
             paramnames+=[self.LISorder[i]+'_'+x for x in LISparams[self.modflags['pl']]]
+            
+            if self.modflags['pl']=='br' and not self.modflags['one_d']:
+                paramnames+=[self.LISorder[i]+'_delta']
         
-        if self.modflags['pl']=='br' and self.modflags['fixd']==None:
+        if self.modflags['pl']=='br' and self.modflags['fixd']==None and self.modflags['one_d']:
             paramnames+=['delta']
         
         return np.array(paramnames)

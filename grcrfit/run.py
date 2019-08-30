@@ -70,6 +70,12 @@ def get_metadata(flag,runID=0):
     except KeyError: metadata['modflags']['priorlimits']=False
     try: test=metadata['modflags']['vphi_err']
     except KeyError: metadata['modflags']['vphi_err'] = 100.
+    try: test=metadata['modflags']['one_d']
+    except KeyError: metadata['modflags']['one_d']=True
+    
+    # if delta not shared, then can't fix it
+    if not metadata['modflags']['one_d']:
+        metadata['modflags']['fixd']=None
 
     return metadata
 
@@ -193,7 +199,8 @@ class Fitter:
     # Initialize the Fitter object
     def __init__(self, data, nsteps=5000, nwalkers=None, PT=True, ntemps=10, processes=None, rerun=False, flag=None,\
                  modflags = {'pl': 's', 'enh': 0, 'weights': None, 'priors': 0, 'crscaling': False,
-                             'grscaling': False, 'fixd': None, 'enhext': False, 'priorlimits': False}):
+                             'grscaling': False, 'fixd': None, 'enhext': False, 'priorlimits': False,
+                             'one_d': True}):
         
         self.data=data
         self.nsteps=nsteps
@@ -226,6 +233,12 @@ class Fitter:
         except KeyError: self.modflags['priorlimits'] = False
         try: test=self.modflags['vphi_err']
         except KeyError: self.modflags['vphi_err'] = 100.
+        try: test=self.modflags['one_d']
+        except KeyError: self.modflags['one_d'] = True
+            
+        # if delta not shared, can't fix it
+        if not self.modflags['one_d']:
+            self.modflags['fixd']=None
         
         # create Model object w/MCMC helper functions
         self.myModel = Model(self.modflags, self.data)
@@ -308,7 +321,7 @@ class Run:
     def __init__(self, flag, fdict, rerun=False, nwalkers=None,
                  modflags = {'pl': 's', 'enh': 0, 'weights': None, 'priors': 0, 'crscaling': False,
                              'grscaling': False, 'fixd': None, 'enhext': False, 'priorlimits': False,
-                             'vphi_err': 100.}):
+                             'vphi_err': 100., 'one_d': True}):
         
         self.metadata={}
         self.metadata['rerun'] = rerun
