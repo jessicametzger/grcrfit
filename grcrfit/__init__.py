@@ -1,9 +1,9 @@
 import os
 
 # for use on my cluster account
-if os.path.exists('/users/jmetzger/local/'):
+if os.path.exists(os.path.expanduser('~/local')):
     import sys
-    sys.path = ['/users/jmetzger/local/'] + sys.path
+    sys.path = [os.path.expanduser('~/local/')] + sys.path
 
 import matplotlib
 matplotlib.use('agg')
