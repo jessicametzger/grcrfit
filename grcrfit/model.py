@@ -592,7 +592,7 @@ class Model():
                             if theta[self.ncrparams + int(self.modflags['grscaling']) + i*self.nLISparams + 4] <= 0:
                                 return -np.inf
                         
-                
+
                 # force params to be within limits from Strong 2015 for broken power-law model, only for Hydrogen
                 if self.modflags['priorlimits'] and self.modflags['pl']=='br' and self.LISorder[i].lower()=='h':
                     
@@ -611,9 +611,13 @@ class Model():
                        theta[self.ncrparams + int(self.modflags['grscaling']) + i*self.nLISparams + 2] > 2.7:
                         return -np.inf
                     
-                    # break energy between 1e3 and 1e5 MeV
-                    if theta[self.ncrparams + int(self.modflags['grscaling']) + i*self.nLISparams + 3] < 1e3 or\
-                       theta[self.ncrparams + int(self.modflags['grscaling']) + i*self.nLISparams + 3] > 1e5:
+                    # break momentum between 1e3 and 1e5 MeV
+                    E_br = theta[self.ncrparams + int(self.modflags['grscaling']) + i*self.nLISparams + 3]
+                    p_br = ph.E_to_p(E_br, 1.)
+                    pc_br = p_br*ph.C_SI
+#                    if theta[self.ncrparams + int(self.modflags['grscaling']) + i*self.nLISparams + 3] < 1e3 or\
+#                       theta[self.ncrparams + int(self.modflags['grscaling']) + i*self.nLISparams + 3] > 1e5:
+                    if pc_br < 1e3 or pc_br > 1e5:
                         return -np.inf
                     
                     # delta between 0.05 and 1.0
@@ -691,7 +695,7 @@ class Model():
             elif self.modflags['pl']=='br':
                 
                 # add ~best-fit proton values from Strong 2015 (ICRC)
-                startpos+=[2.37,5870.]
+                startpos+=[2.37, ph.p_to_E(5870./ph.C_SI, 1)]
                 
                 # add delta if each experiment gets their own
                 if not self.modflags['one_d']:
