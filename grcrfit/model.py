@@ -29,6 +29,10 @@ from . import enhs as enf
 # - 'priors' = 0 or 1, for gaussian (0) or flag (1) priors on phis
 # - 'cr/grscaling' = True or False, whether or not to scale all CR experiments  except AMS-02 
 #    or all GR experiments to correct for systematic errors
+# - 'priorlimits' = True or False, whether or not to constrain the parameter in specified ranges
+# - 'one_d' = True or False, whether we use single value or multiple values for delta (sharpness of the break)
+# - 'fixd': If "None" the delta is treated as a free parameter. If some number is given, deita is fixed to that value.
+
 class Model():
     
     # initialize the Model object
@@ -625,7 +629,8 @@ class Model():
                         if theta[self.ncrparams + int(self.modflags['grscaling']) + i*self.nLISparams + 4] < 0.05 or\
                            theta[self.ncrparams + int(self.modflags['grscaling']) + i*self.nLISparams + 4] > 1.0:
                             return -np.inf
-                    else:
+#                    else:
+                    elif self.modflags['fixd']==None:
                         if theta[-1] < 0.05 or theta[-1] > 1.0: return -np.inf
                     
             return lp_phi(theta)
@@ -701,9 +706,10 @@ class Model():
                 if not self.modflags['one_d']:
                     startpos+=[0.5]
         
-        # add delta (Strong 2015 ICRC)
-        if self.modflags['pl']=='br' and self.modflags['fixd']==None and self.modflags['one_d']:
-            startpos+=[.5]
+        # add universal delta (Strong 2015 ICRC)
+        if self.modflags['pl']=='br' and self.modflags['one_d']:
+            if self.modflags['fixd']==None:
+                startpos+=[0.5]
         
         return np.array(startpos)
         
@@ -732,8 +738,9 @@ class Model():
             if self.modflags['pl']=='br' and not self.modflags['one_d']:
                 paramnames+=[self.LISorder[i]+'_delta']
         
-        if self.modflags['pl']=='br' and self.modflags['fixd']==None and self.modflags['one_d']:
-            paramnames+=['delta']
+        if self.modflags['pl']=='br' and self.modflags['one_d']:
+            if self.modflags['fixd']==None:
+                paramnames+=['delta']
         
         return np.array(paramnames)
     
