@@ -169,9 +169,9 @@ class Model():
         else:
             self.ncrparams = self.nphis
         
-        # whether each el's LIS params will have norm, alpha1, and alpha 2
-        # or norm, alpha1, alpha3, p_br
-        # or just norm, alpha1
+        # whether each el's LIS params will have just norm, alpha1 ('s'),
+        # norm, alpha1, and alpha ('b')
+        # or norm, alpha1, alpha2, p_br ('br').
         if self.modflags['pl']=='s':
             self.nLISparams=2
         elif self.modflags['pl']=='b':
@@ -597,30 +597,40 @@ class Model():
                                 return -np.inf
                         
 
-                # force params to be within limits from Strong 2015 for broken power-law model, only for Hydrogen
-                if self.modflags['priorlimits'] and self.modflags['pl']=='br' and self.LISorder[i].lower()=='h':
+                # force params to be within limits from Strong 2015 for broken power-law model.
+#                if self.modflags['priorlimits'] and self.modflags['pl']=='br' and self.LISorder[i].lower()=='h':
+                if self.modflags['priorlimits'] and self.modflags['pl']=='br':
                     
-                    # c/4pi n_ref,100GeV/n between ~1e-9 and ~20e-9 (# /cm^2 /s /sr /MeV)
-                    if theta[self.ncrparams + int(self.modflags['grscaling']) + i*self.nLISparams] < 5 or\
-                       theta[self.ncrparams + int(self.modflags['grscaling']) + i*self.nLISparams] > 120:
+                    # limit for normalization, only for hydrogen. 
+                    # c/4pi n_ref,100GeV/n between ~1e-9 and ~20e-9 (# /cm^2 /s /sr /MeV). This translates into 5-100 at 10 GeV/n in (#/s/m2/sr/GeV) for index=2.7.
+                    if (self.LISorder[i].lower()=='h'):
+                        norm = theta[self.ncrparams + int(self.modflags['grscaling']) + i*self.nLISparams]
+                        if norm < 5 or norm  > 100:
+                            return -np.inf
+                    
+                    # alpha1 between 3.5 and 2.6
+                    alpha1 = theta[self.ncrparams + int(self.modflags['grscaling']) + i*self.nLISparams + 1] 
+                    if alpha1 < 2.6 or alpha1> 3.5:
                         return -np.inf
                     
-                    # alpha1 between -3.5 and -2.6
-                    if theta[self.ncrparams + int(self.modflags['grscaling']) + i*self.nLISparams + 1] < 2.6 or\
-                       theta[self.ncrparams + int(self.modflags['grscaling']) + i*self.nLISparams + 1] > 3.5:
+                    # alpha2 between 2.7 and 2.2
+                    alpha2 = theta[self.ncrparams + int(self.modflags['grscaling']) + i*self.nLISparams + 2] 
+                    if alpha2 < 2.2 or alpha2 > 2.7:
                         return -np.inf
-                    
-                    # alpha3 between -2.7 and -2.2
-                    if theta[self.ncrparams + int(self.modflags['grscaling']) + i*self.nLISparams + 2] < 2.2 or\
-                       theta[self.ncrparams + int(self.modflags['grscaling']) + i*self.nLISparams + 2] > 2.7:
+                    # alpha2 smaller than alpha1 (i.e., flatter)
+                    if alpha2 > alpha1:
                         return -np.inf
                     
                     # break momentum between 1e3 and 1e5 MeV
+                    # We may want to share the break among spices in rigidity (rather than momentum). So rig_br also calculated 
                     E_br = theta[self.ncrparams + int(self.modflags['grscaling']) + i*self.nLISparams + 3]
-                    p_br = ph.E_to_p(E_br, 1.)
-                    pc_br = p_br*ph.C_SI
-#                    if theta[self.ncrparams + int(self.modflags['grscaling']) + i*self.nLISparams + 3] < 1e3 or\
-#                       theta[self.ncrparams + int(self.modflags['grscaling']) + i*self.nLISparams + 3] > 1e5:
+                    massNumber = ph.M_DICT[self.LISorder[i].lower()]
+                    atomNumber = ph.Z_DICT[self.LISorder[i].lower()]
+                    p_br = ph.E_to_p(E_br, massNumber)
+                    pc_br = p_br*ph.C_SI # in MeV
+                    rig_br = pc_br/atomNumber # in MV
+#                    if (self.LISorder[i].lower() == 'he'):
+#                      print ("###", self.LISorder[i].lower(), E_br, p_br, pc_br, rig_br)
                     if pc_br < 1e3 or pc_br > 1e5:
                         return -np.inf
                     
@@ -629,7 +639,6 @@ class Model():
                         if theta[self.ncrparams + int(self.modflags['grscaling']) + i*self.nLISparams + 4] < 0.05 or\
                            theta[self.ncrparams + int(self.modflags['grscaling']) + i*self.nLISparams + 4] > 1.0:
                             return -np.inf
-#                    else:
                     elif self.modflags['fixd']==None:
                         if theta[-1] < 0.05 or theta[-1] > 1.0: return -np.inf
                     
@@ -717,8 +726,8 @@ class Model():
     # default parameter names
     def get_paramnames(self):
         LISparams={'s': ['norm','alpha1'],
-                   'b': ['norm','alpha1','alpha2'],
-                   'br': ['norm','alpha1','alpha3', 'Ebr']}
+                   'b': ['norm','alpha1','alpha'],
+                   'br': ['norm','alpha1','alpha2', 'Ebr']}
         
         paramnames=[]
         
