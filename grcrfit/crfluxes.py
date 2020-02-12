@@ -39,7 +39,7 @@ def flux_spl(LIS_params, phi, E_TOA, el):
     
 
 def flux_bpl(LIS_params, phi, E_TOA, el):
-    LIS_norm, alpha1, alpha2 = LIS_params
+    LIS_norm, alpha1, alpha = LIS_params
     
     try:
         # figure out which interstellar energies/momenta you'll need
@@ -53,7 +53,7 @@ def flux_bpl(LIS_params, phi, E_TOA, el):
         # construct true LIS at the same energies (momenta)
         p_ref = ph.p10_DICT[el]
         v_ref = p_ref*ph.C_SI/(10*ph.M_DICT[el] + 931.49*ph.M_DICT[el])
-        flux_IS=LIS_norm*((p_IS/p_ref)**(-alpha1))*((v_IS/v_ref)**alpha2)
+        flux_IS=LIS_norm*((p_IS/p_ref)**(-alpha1))*((v_IS/v_ref)**alpha)
 
         # modulate the LIS according to phi
         flux_TOA_model=ph.mod_flux(flux_IS, E_TOA, E_IS, ph.M_DICT[el])
@@ -65,7 +65,7 @@ def flux_bpl(LIS_params, phi, E_TOA, el):
     return flux_TOA_model
 
 def flux_brpl(LIS_params, phi, E_TOA, el):
-    LIS_norm, alpha1, alpha3, E_br, delta = LIS_params
+    LIS_norm, alpha1, alpha2, E_br, delta = LIS_params
 
     try:
         # figure out which interstellar energies/momenta you'll need
@@ -77,8 +77,8 @@ def flux_brpl(LIS_params, phi, E_TOA, el):
         # LIS_norm is c/4pi n_ref as in Strong 2015 but at 10 GeV/n & in USINE units
         p_br=ph.E_to_p(E_br, ph.M_DICT[el])
         p_ref = ph.p10_DICT[el]
-        flux=((p_IS/p_br)**(alpha1/delta) + (p_IS/p_br)**(alpha3/delta))
-        flux=flux/((p_ref/p_br)**(alpha1/delta) + (p_ref/p_br)**(alpha3/delta))
+        flux=((p_IS/p_br)**(alpha1/delta) + (p_IS/p_br)**(alpha2/delta))
+        flux=flux/((p_ref/p_br)**(alpha1/delta) + (p_ref/p_br)**(alpha2/delta))
         
         # LIS_norm is c/4pi n_ref as in Strong 2015. Must scale units to match USINE ones
         flux_IS = LIS_norm*(flux**(-delta))
@@ -111,7 +111,7 @@ def flux_spl_IS(LIS_params, p, el):
     return flux
     
 def flux_bpl_IS(LIS_params, p, el):
-    LIS_norm, alpha1, alpha2 = LIS_params
+    LIS_norm, alpha1, alpha = LIS_params
     p=np.array(p)
     
     try:
@@ -121,7 +121,7 @@ def flux_bpl_IS(LIS_params, p, el):
         # construct true LIS at the same energies (momenta)
         p_ref = ph.p10_DICT[el]
         v_ref = p_ref*ph.C_SI/(10*ph.M_DICT[el] + 931.49*ph.M_DICT[el])
-        flux=LIS_norm*((p/p_ref)**(-alpha1))*((v/v_ref)**alpha2)
+        flux=LIS_norm*((p/p_ref)**(-alpha1))*((v/v_ref)**alpha)
     except:
         return -np.inf
     
@@ -131,7 +131,7 @@ def flux_bpl_IS(LIS_params, p, el):
 
 
 def flux_brpl_IS(LIS_params, p, el):
-    LIS_norm, alpha1, alpha3, E_br, delta = LIS_params
+    LIS_norm, alpha1, alpha2, E_br, delta = LIS_params
     p=np.array(p)
 
     try:
@@ -139,8 +139,8 @@ def flux_brpl_IS(LIS_params, p, el):
         # construct true LIS at the same energies (momenta)
         p_br=ph.E_to_p(E_br, ph.M_DICT[el])
         p_ref = ph.p10_DICT[el]
-        flux=((p/p_br)**(alpha1/delta) + (p/p_br)**(alpha3/delta))
-        flux=flux/((p_ref/p_br)**(alpha1/delta) + (p_ref/p_br)**(alpha3/delta))
+        flux=((p/p_br)**(alpha1/delta) + (p/p_br)**(alpha2/delta))
+        flux=flux/((p_ref/p_br)**(alpha1/delta) + (p_ref/p_br)**(alpha2/delta))
         
         # LIS_norm is c/4pi n_ref as in Strong 2015 but at 10 GeV/n & in USINE units
         flux = LIS_norm*(flux**(-delta))
