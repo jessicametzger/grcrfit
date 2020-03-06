@@ -30,8 +30,8 @@ from . import enhs as enf
 # - 'cr/grscaling' = True or False, whether or not to scale all CR experiments  except AMS-02 
 #    or all GR experiments to correct for systematic errors
 # - 'priorlimits' = True or False, whether or not to constrain the parameter in specified ranges
-# - 'one_d' = True or False, whether we use single value or multiple values for delta (sharpness of the break)
 # - 'fixd': If "None" the delta is treated as a free parameter. If some number is given, deita is fixed to that value.
+# - 'one_d' = True or False, whether we use single value or multiple values for delta (sharpness of the break)
 
 class Model():
     
@@ -582,9 +582,15 @@ class Model():
                        theta[self.ncrparams + int(self.modflags['grscaling']) + i*self.nLISparams + 2]:
                         return -np.inf
                     
-                    # break energy between 0 and 300 GeV
-                    if theta[self.ncrparams + int(self.modflags['grscaling']) + i*self.nLISparams + 3] <= 0 or\
-                       theta[self.ncrparams + int(self.modflags['grscaling']) + i*self.nLISparams + 3] >= 3e5:
+                    # break momentume between 0 and 300 GeV
+                    # We may want to share the break among spices in rigidity (rather than momentum). So rig_br also calculated 
+                    E_br = theta[self.ncrparams + int(self.modflags['grscaling']) + i*self.nLISparams + 3]
+                    massNumber = ph.M_DICT[self.LISorder[i].lower()]
+                    atomNumber = ph.Z_DICT[self.LISorder[i].lower()]
+                    p_br = ph.E_to_p(E_br, massNumber)
+                    pc_br = p_br*ph.C_SI # in MeV
+                    rig_br = pc_br/atomNumber # in MV
+                    if pc_br <= 0 or pc_br >= 3e5:
                         return -np.inf
                     
                     # delta above 0
@@ -621,7 +627,7 @@ class Model():
                     if alpha2 > alpha1:
                         return -np.inf
                     
-                    # break momentum between 1e3 and 1e5 MeV
+                    # break momentum between 1e3 and 1e4 MeV
                     # We may want to share the break among spices in rigidity (rather than momentum). So rig_br also calculated 
                     E_br = theta[self.ncrparams + int(self.modflags['grscaling']) + i*self.nLISparams + 3]
                     massNumber = ph.M_DICT[self.LISorder[i].lower()]
@@ -631,7 +637,7 @@ class Model():
                     rig_br = pc_br/atomNumber # in MV
 #                    if (self.LISorder[i].lower() == 'he'):
 #                      print ("###", self.LISorder[i].lower(), E_br, p_br, pc_br, rig_br)
-                    if pc_br < 1e3 or pc_br > 1e5:
+                    if pc_br < 1e3 or pc_br > 1e4:
                         return -np.inf
                     
                     # delta between 0.05 and 1.0
