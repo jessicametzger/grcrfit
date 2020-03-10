@@ -62,16 +62,18 @@ def get_metadata(flag,runID=0):
     except KeyError: metadata['modflags']['crscaling']=False
     try: test=metadata['modflags']['grscaling']
     except KeyError: metadata['modflags']['grscaling']=False
-    try: test=metadata['modflags']['fixd']
-    except KeyError: metadata['modflags']['fixd']=None
     try: test=metadata['modflags']['enhext']
     except KeyError: metadata['modflags']['enhext']=False
     try: test=metadata['modflags']['priorlimits']
     except KeyError: metadata['modflags']['priorlimits']=False
     try: test=metadata['modflags']['vphi_err']
     except KeyError: metadata['modflags']['vphi_err'] = 100.
+    try: test=metadata['modflags']['fixd']
+    except KeyError: metadata['modflags']['fixd']=None
     try: test=metadata['modflags']['one_d']
     except KeyError: metadata['modflags']['one_d']=True
+    try: test=metadata['modflags']['fix_vphi']
+    except KeyError: metadata['modflags']['fix_vphi']=None
     
     # if delta not shared, then can't fix it
     if not metadata['modflags']['one_d']:
@@ -199,8 +201,8 @@ class Fitter:
     # Initialize the Fitter object
     def __init__(self, data, nsteps=5000, nwalkers=None, PT=True, ntemps=10, processes=None, rerun=False, flag=None,\
                  modflags = {'pl': 's', 'enh': 0, 'weights': None, 'priors': 0, 'crscaling': False,
-                             'grscaling': False, 'fixd': None, 'enhext': False, 'priorlimits': False,
-                             'one_d': True}):
+                             'grscaling': False, 'enhext': False, 'priorlimits': False, 'vphi_err': 100.,
+                             'fixd': None, 'one_d': True, 'fix_vphi': None}):
         
         self.data=data
         self.nsteps=nsteps
@@ -225,16 +227,18 @@ class Fitter:
         except KeyError: self.modflags['crscaling'] = False
         try: test=self.modflags['grscaling']
         except KeyError: self.modflags['grscaling'] = False
-        try: test=self.modflags['fixd']
-        except KeyError: self.modflags['fixd'] = None
         try: test=self.modflags['enhext']
         except KeyError: self.modflags['enhext'] = False
         try: test=self.modflags['priorlimits']
         except KeyError: self.modflags['priorlimits'] = False
         try: test=self.modflags['vphi_err']
         except KeyError: self.modflags['vphi_err'] = 100.
+        try: test=self.modflags['fixd']
+        except KeyError: self.modflags['fixd'] = None
         try: test=self.modflags['one_d']
         except KeyError: self.modflags['one_d'] = True
+        try: test=self.modflags['fix_vphi']
+        except KeyError: self.modflags['fix_vphi'] = None
             
         # if delta not shared, can't fix it
         if not self.modflags['one_d']:
@@ -320,8 +324,8 @@ class Run:
     # Initialize Run object
     def __init__(self, flag, fdict, rerun=False, nwalkers=None,
                  modflags = {'pl': 's', 'enh': 0, 'weights': None, 'priors': 0, 'crscaling': False,
-                             'grscaling': False, 'fixd': None, 'enhext': False, 'priorlimits': False,
-                             'vphi_err': 100., 'one_d': True}):
+                             'grscaling': False, 'enhext': False, 'priorlimits': False, 'vphi_err': 100.,
+                              'fixd': None, 'one_d': True, 'fix_vphi': None}):
         
         self.metadata={}
         self.metadata['rerun'] = rerun
