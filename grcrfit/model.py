@@ -26,12 +26,15 @@ from . import enhs as enf
 # - 'weights' = 3-item list giving relative weights of CR, Voyager, and GR log-like.
 #    Note that priors aren't weighted, so may need to tune weight normalization to get
 #    correct relative weighting between likelihood & prior. If weights==None, no weighting
-# - 'priors' = 0 or 1, for gaussian (0) or flag (1) priors on phis
+# - 'priors' = 0 or 1, for gaussian (0) or flat (1) priors on phis
+# - 'vphi_err': Voyager phi is limeted from the initial value within +/- of this value in priors
 # - 'cr/grscaling' = True or False, whether or not to scale all CR experiments  except AMS-02 
 #    or all GR experiments to correct for systematic errors
+# - 'enhext' = True or False
 # - 'priorlimits' = True or False, whether or not to constrain the parameter in specified ranges
 # - 'fixd': If "None" the delta is treated as a free parameter. If some number is given, deita is fixed to that value.
 # - 'one_d' = True or False, whether we use single value or multiple values for delta (sharpness of the break)
+# - 'fix_vphi': If "None" the voyager phi is treated as a free parameter. If some number is given, it is virtually fixed to that value.
 
 class Model():
     
@@ -59,6 +62,7 @@ class Model():
         self.phierrs=[]
         self.CRels=[]
         self.CRexps=[]
+        self.CRexps_phi=[] ### duplicate based on phi will be removed
         self.CRdata=[]
         self.CRZs=[]
         self.CRMs=[]
@@ -67,6 +71,15 @@ class Model():
         self.GRdata=[]
         self.VRinds=[]
         
+        # voyager phi and error for (virtually) fixing
+        self.vphi0 = 1.0 # not used if 'fix_vphi'==None
+        self.vphi_err0 = 0.01 # we want to limit vphi close to vphi0. not used if 'fix_vphi'==None 
+        if not self.modflags['fix_vphi']==None: # if voyager phis are fixed
+            self.vphi0 = self.modflags['fix_vphi']
+            # make sure vphi0-vphi_err0 is positive
+            if (self.vphi0<self.vphi_err0):
+                self.vphi0 = self.vphi_err0
+
         elements = list(self.data.keys())
         elements.sort()
         for elkey in elements: #loop thru elements
@@ -87,6 +100,7 @@ class Model():
                     self.phierrs+=[self.data[elkey][expkey][3]]
                     self.CRels+=[elkey.lower()]
                     self.CRexps+=[expkey]
+                    self.CRexps_phi+=[expkey]
                     self.CRdata+=[self.data[elkey][expkey][0]]
                     self.CRZs+=[ph.Z_DICT[elkey.lower()]]
                     self.CRMs+=[ph.M_DICT[elkey.lower()]]
@@ -106,6 +120,7 @@ class Model():
         self.CRMs=np.array(self.CRMs).astype(np.float)
         self.CRels=np.array(self.CRels)
         self.CRexps=np.array(self.CRexps)
+        self.CRexps_phi=np.array(self.CRexps_phi)
         self.CRtimes=np.array(self.CRtimes)
         self.phitimes=np.copy(self.CRtimes)
         self.GRexps=np.array(self.GRexps)
@@ -142,6 +157,19 @@ class Model():
         self.phis = np.delete(self.phis, self.remove_inds)
         self.phierrs = np.delete(self.phierrs, self.remove_inds)
         self.phitimes = np.delete(self.phitimes, self.remove_inds)
+        self.CRexps_phi = np.delete(self.CRexps_phi, self.remove_inds)
+        # dump phi and phierrs for diagnostics
+        # print ("### self.phis=", self.phis)
+        # print ("### self.phierrs=", self.phierrs)
+        # if voyager phi is fixed, update the initial values
+        if not self.modflags['fix_vphi']==None: # if voyager phis are fixed
+            for i in range(len(self.CRexps_phi)):
+                if 'voyager1' in self.CRexps_phi[i]:
+                    self.phis[i] = self.vphi0
+                    self.phierrs[i] = self.vphi_err0
+                    # dump phi and phierrs for diagnostics
+                    # print ("## self.phis=", self.phis)
+                    # print ("## self.phierrs=", self.phierrs)
         
         # also create list of ref. scaling factors & errors (all 1, .1)
         # corresponding with the list of phi's, for prior calculation.
@@ -557,6 +585,21 @@ class Model():
         # also add gaussian priors
         def lnprior(theta):
             
+            theta_slice = theta[0:self.ncrparams:(int(self.modflags['crscaling'])+1)]
+            # print for diagnostics
+            # print ("### thetha=", theta)
+            # print ("### thetha(slice)=", theta_slice)
+            # print ("## vphi0/vphi_err0=", self.vphi0, self.vphi_err0)
+            # print ("## CRexps=", self.CRexps, len(self.CRexps))
+            # print ("## CRexps_phi=", self.CRexps_phi, len(self.CRexps_phi))
+            ### see if the parameter is voyager phi
+            if not self.modflags['fix_vphi']==None: # if voyager phis are fixed
+                for i in range(len(self.CRexps_phi)):
+                    if 'voyager1' in self.CRexps_phi[i]:
+                        vphi = theta_slice[i]
+                        # print ("# vphi=", vphi)
+                        if vphi<=self.vphi0-self.vphi_err0 or vphi>self.vphi0+self.vphi_err0:
+                            return -np.inf
             # positive phis
             if np.any(theta[0:self.ncrparams:(int(self.modflags['crscaling'])+1)] <= 0):
                 return -np.inf
@@ -694,11 +737,17 @@ class Model():
         # prevent Voyager phis from starting at very small region around 0
         for i in range(self.nphis):
             if 'voyager' in self.CRexps[self.match_inds[i][0]] and '2012' in self.CRexps[self.match_inds[i][0]]:
-                if self.modflags['crscaling']:
-                    startpos[2*i] = 10.
-                else:
-                    startpos[i] = 10.
-        
+                if self.modflags['fix_vphi']==None: # if voyager phis are treated as free parameter
+                    if self.modflags['crscaling']:
+                        startpos[2*i] = 10.
+                    else:
+                        startpos[i] = 10.
+                else: # if voyager phi is fixed to a specific common value
+                    if self.modflags['crscaling']:
+                        startpos[2*i] = self.vphi0
+                    else:
+                        startpos[i] = self.vphi0
+
         # add gr scaling factor
         if self.modflags['grscaling']:
             startpos += [1.]
@@ -726,6 +775,7 @@ class Model():
             if self.modflags['fixd']==None:
                 startpos+=[0.5]
         
+        # print ("## startpos=", startpos)
         return np.array(startpos)
         
         
@@ -757,5 +807,6 @@ class Model():
             if self.modflags['fixd']==None:
                 paramnames+=['delta']
         
+        # print ("## paramnames=", paramnames)
         return np.array(paramnames)
     
