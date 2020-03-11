@@ -199,7 +199,7 @@ class Model():
         
         # whether each el's LIS params will have just norm, alpha1 ('s'),
         # norm, alpha1, and alpha ('b')
-        # or norm, alpha1, alpha2, p_br ('br').
+        # or norm, alpha1, alpha2, pc_br ('br').
         if self.modflags['pl']=='s':
             self.nLISparams=2
         elif self.modflags['pl']=='b':
@@ -627,11 +627,13 @@ class Model():
                     
                     # break momentume between 0 and 300 GeV
                     # We may want to share the break among spices in rigidity (rather than momentum). So rig_br also calculated 
-                    E_br = theta[self.ncrparams + int(self.modflags['grscaling']) + i*self.nLISparams + 3]
                     massNumber = ph.M_DICT[self.LISorder[i].lower()]
                     atomNumber = ph.Z_DICT[self.LISorder[i].lower()]
-                    p_br = ph.E_to_p(E_br, massNumber)
-                    pc_br = p_br*ph.C_SI # in MeV
+                    # old code (for reference): E_br->p_br->pc_br
+                    # E_br = theta[self.ncrparams + int(self.modflags['grscaling']) + i*self.nLISparams + 3]
+                    # p_br = ph.E_to_p(E_br, massNumber)
+                    # pc_br = p_br*ph.C_SI # in MeV
+                    pc_br = theta[self.ncrparams + int(self.modflags['grscaling']) + i*self.nLISparams + 3]
                     rig_br = pc_br/atomNumber # in MV
                     if pc_br <= 0 or pc_br >= 3e5:
                         return -np.inf
@@ -672,11 +674,13 @@ class Model():
                     
                     # break momentum between 1e3 and 1e4 MeV
                     # We may want to share the break among spices in rigidity (rather than momentum). So rig_br also calculated 
-                    E_br = theta[self.ncrparams + int(self.modflags['grscaling']) + i*self.nLISparams + 3]
                     massNumber = ph.M_DICT[self.LISorder[i].lower()]
                     atomNumber = ph.Z_DICT[self.LISorder[i].lower()]
-                    p_br = ph.E_to_p(E_br, massNumber)
-                    pc_br = p_br*ph.C_SI # in MeV
+                    # old code (for reference): E_br->p_br->pc_br
+                    # E_br = theta[self.ncrparams + int(self.modflags['grscaling']) + i*self.nLISparams + 3]
+                    # p_br = ph.E_to_p(E_br, massNumber)
+                    # pc_br = p_br*ph.C_SI # in MeV
+                    pc_br = theta[self.ncrparams + int(self.modflags['grscaling']) + i*self.nLISparams + 3]
                     rig_br = pc_br/atomNumber # in MV
 #                    if (self.LISorder[i].lower() == 'he'):
 #                      print ("###", self.LISorder[i].lower(), E_br, p_br, pc_br, rig_br)
@@ -764,7 +768,9 @@ class Model():
             elif self.modflags['pl']=='br':
                 
                 # add ~best-fit proton values from Strong 2015 (ICRC)
-                startpos+=[2.37, ph.p_to_E(5870./ph.C_SI, 1)]
+                startpos+=[2.37, 5870]
+                # old code (for reference) where E_br was used instaed of pc_br
+                # startpos+=[2.37, ph.p_to_E(5870./ph.C_SI, 1)]
                 
                 # add delta if each experiment gets their own
                 if not self.modflags['one_d']:
@@ -783,7 +789,7 @@ class Model():
     def get_paramnames(self):
         LISparams={'s': ['norm','alpha1'],
                    'b': ['norm','alpha1','alpha'],
-                   'br': ['norm','alpha1','alpha2', 'Ebr']}
+                   'br': ['norm','alpha1','alpha2', 'Pbr']}
         
         paramnames=[]
         
