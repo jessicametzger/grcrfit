@@ -62,7 +62,7 @@ def flux_bpl(LIS_params, phi, E_TOA, el):
     return flux_TOA_model
 
 def flux_brpl(LIS_params, phi, E_TOA, el):
-    LIS_norm, alpha1, alpha2, E_br, delta = LIS_params
+    LIS_norm, alpha1, alpha2, pc_br, delta = LIS_params
 
     try:
         # figure out which interstellar energies/momenta you'll need
@@ -121,13 +121,14 @@ def flux_bpl_IS(LIS_params, p, el):
     return flux
 
 def flux_brpl_IS(LIS_params, p, el):
-    LIS_norm, alpha1, alpha2, E_br, delta = LIS_params
+    LIS_norm, alpha1, alpha2, pc_br, delta = LIS_params
     p=np.array(p)
 
     try:
 
         # construct true LIS at the same energies (momenta)
-        p_br=ph.E_to_p(E_br, ph.M_DICT[el])
+        # p_br=ph.E_to_p(E_br, ph.M_DICT[el])
+        p_br=pc_br/ph.C_SI # in MeV/(m/s)
         p_ref = ph.p10_DICT[el]
         flux=((p/p_br)**(alpha1/delta) + (p/p_br)**(alpha2/delta))
         flux=flux/((p_ref/p_br)**(alpha1/delta) + (p_ref/p_br)**(alpha2/delta))
