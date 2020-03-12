@@ -104,7 +104,10 @@ def corner_plot(flag, cutoff=0):
         # LIS params for that element
         el_inds=[LIS_params[j] for j in range(len(LIS_params)) if\
                  phi_name[0:2]==names[LIS_params[j]].strip()[0:2] or\
-                 ('delta'==names[LIS_params[j]].strip().lower())]
+                 ('delta'==names[LIS_params[j]].strip().lower()) or\
+                 ('alpha2'==names[LIS_params[j]].strip().lower()) or\
+                 ('pbr1'==names[LIS_params[j]].strip().lower()) or\
+                 ('delta1'==names[LIS_params[j]].strip().lower())]
         
         # all indices (LIS, phi(, scale)) for that element/exp; don't plot ams02 filler steps
         current_inds = el_inds + [phi_params[i]]
