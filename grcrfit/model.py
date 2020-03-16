@@ -211,6 +211,10 @@ class Model():
             # independent among elements: LIS_norm, alpha1(HE), alpha3(LE), pc_br2(M-L), delta2(M-L)
             # common among elements: alpha2(ME), pc_br1(H-M), delta1(H-M)
             self.nLISparams=5
+        elif self.modflags['pl']=='dbr2':
+            # independent among elements: LIS_norm, alpha1(HE), alpha3(LE), rig_br2(M-L), delta2(M-L)
+            # common among elements: alpha2(ME), rig_br1(H-M), delta1(H-M)
+            self.nLISparams=5
         else:
             print('Must give valid CR model flag')
             sys.exit()
@@ -293,6 +297,9 @@ class Model():
         elif self.modflags['pl']=='dbr':
             self.crformula = crf.flux_dbrpl
             self.crformula_IS = crf.flux_dbrpl_IS
+        elif self.modflags['pl']=='dbr2':
+            self.crformula = crf.flux_dbr2pl
+            self.crformula_IS = crf.flux_dbr2pl_IS
         
         # create list of model interstellar CR fluxes, same order as data ones
         # only used in plotting
@@ -316,6 +323,9 @@ class Model():
                             LIS_params+=[self.modflags['fixd']]
                         
                     if self.modflags['pl']=='dbr': # add common alpha2(ME), pc_br1(H-M), delta1(H-M)
+                        LIS_params+=[theta[-3], theta[-2], theta[-1]]
+                        
+                    if self.modflags['pl']=='dbr2': # add common alpha2(ME), rig_br1(H-M), delta1(H-M)
                         LIS_params+=[theta[-3], theta[-2], theta[-1]]
                         
                     crflux_ls[index]=self.crformula_IS(LIS_params, ph.E_to_p(self.CREs[index], self.CRMs[index]), 
@@ -344,6 +354,9 @@ class Model():
                             LIS_params+=[self.modflags['fixd']]
                         
                     if self.modflags['pl']=='dbr': # add common alpha2(ME), pc_br1(H-M), delta1(H-M)
+                        LIS_params+=[theta[-3], theta[-2], theta[-1]]
+
+                    if self.modflags['pl']=='dbr2': # add common alpha2(ME), rig_br1(H-M), delta1(H-M)
                         LIS_params+=[theta[-3], theta[-2], theta[-1]]
 
                     # account for scaling parameter if needed
@@ -412,6 +425,9 @@ class Model():
                         if self.modflags['pl']=='dbr': # add common alpha2(ME), pc_br1(H-M), delta1(H-M)
                             LIS_params+=[theta[-3], theta[-2], theta[-1]]
 
+                        if self.modflags['pl']=='dbr2': # add common alpha2(ME), rig_br1(H-M), delta1(H-M)
+                            LIS_params+=[theta[-3], theta[-2], theta[-1]]
+
                         # enhancement factors given w.r.t. positive spectral ind.
                         # if beta pl, this will be momentum (higher-energy) index
                         # if broken pl, this will be first (higher-energy) index
@@ -444,6 +460,9 @@ class Model():
                                     LIS_params+=[self.modflags['fixd']]
                             
                             if self.modflags['pl']=='dbr': # add common alpha2(ME), pc_br1(H-M), delta1(H-M)
+                                LIS_params+=[theta[-3], theta[-2], theta[-1]]
+
+                            if self.modflags['pl']=='dbr': # add common alpha2(ME), rig_br1(H-M), delta1(H-M)
                                 LIS_params+=[theta[-3], theta[-2], theta[-1]]
 
                             # add to weighted sum
@@ -482,6 +501,10 @@ class Model():
                 
             # add common alpha2(ME), pc_br1(H-M), delta1(H-M)
             if self.modflags['pl']=='dbr':
+                LIS_params_pp+=[theta[-3], theta[-2], theta[-1]]
+
+            # add common alpha2(ME), rig_br1(H-M), delta1(H-M)
+            if self.modflags['pl']=='dbr2':
                 LIS_params_pp+=[theta[-3], theta[-2], theta[-1]]
 
             return grf.get_fluxes_pp(LIS_params_pp, self.GRlogEgs, self.crformula_IS)
@@ -709,6 +732,40 @@ class Model():
                     if delta2 <=0:
                         return -np.inf
 
+                if self.modflags['pl']=='dbr2':
+                    # NB theta[-3], theta[-2], theta[-1] = alpha2(ME), rig_br1(H-M), delta1(H-M)
+                    alpha2, rig_br1, delta1 = theta[-3], theta[-2], theta[-1]
+                    # alpha2(ME) should be positive (negative slope)
+                    # if theta[-3] <=0:
+                    if alpha2 <= 0:
+                        return -np.inf
+                    
+                    # alpha3(LE) should be negative (positive slope)
+                    alpha3 = theta[self.ncrparams + int(self.modflags['grscaling']) + i*self.nLISparams + 2]
+                    # if theta[self.ncrparams + int(self.modflags['grscaling']) + i*self.nLISparams + 2] >=0:
+                    if alpha3 >=0:
+                        return -np.inf
+                    
+                    # alpha1(HE) should be larger (steeper) than alpha2(ME)
+                    alpha1 = theta[self.ncrparams + int(self.modflags['grscaling']) + i*self.nLISparams + 1]
+                    # if theta[self.ncrparams + int(self.modflags['grscaling']) + i*self.nLISparams + 1] <= theta[-3]:
+                    if alpha1 <= alpha2:
+                        return -np.inf
+                    
+                    # break rigidity 1 (H-M) more than 1 GeV and break rigidity 2 (M-L) less than 1 GeV
+                    rig_br2 = theta[self.ncrparams + int(self.modflags['grscaling']) + i*self.nLISparams + 3]
+                    if rig_br1 <= 1e3:
+                        return -np.inf
+                    if rig_br2 >= 1e3:
+                        return -np.inf
+                    
+                    # delta1(H-M) and delta2(M-L) above 0
+                    delta2 = theta[self.ncrparams + int(self.modflags['grscaling']) + i*self.nLISparams + 4]
+                    if delta1 <= 0:
+                        return -np.inf
+                    if delta2 <=0:
+                        return -np.inf
+
 
                 # force params to be within limits from Strong 2015 for broken power-law model.
 #                if self.modflags['priorlimits'] and self.modflags['pl']=='br' and self.LISorder[i].lower()=='h':
@@ -782,6 +839,39 @@ class Model():
                     atomNumber = ph.Z_DICT[self.LISorder[i].lower()]
                     rig_br1 = pc_br1/atomNumber # in MV
                     if pc_br1 < 1e3 or pc_br1 > 1e4:
+                        return -np.inf
+                    
+                    # delta1(H-M) and delta2(M-L) between 0.05 and 1.0
+                    delta1 = theta[-1]
+                    delta2 = theta[self.ncrparams + int(self.modflags['grscaling']) + i*self.nLISparams + 4]
+                    if  delta1 < 0.05 or delta1 > 1.0:
+                        return -np.inf
+                    if  delta2 < 0.05 or delta2 > 1.0:
+                        return -np.inf
+                    
+                # force params to be within limits from Strong 2015 for double-broken power-law model.
+                if self.modflags['priorlimits'] and self.modflags['pl']=='dbr2':
+                    
+                    # limit for normalization, only for hydrogen. 
+                    # c/4pi n_ref,100GeV/n between ~1e-9 and ~20e-9 (# /cm^2 /s /sr /MeV). This translates into 5-100 at 10 GeV/n in (#/s/m2/sr/GeV) for index=2.7.
+                    if (self.LISorder[i].lower()=='h'):
+                        norm = theta[self.ncrparams + int(self.modflags['grscaling']) + i*self.nLISparams]
+                        if norm < 5 or norm  > 100:
+                            return -np.inf
+                    
+                    # alpha1(HE) between 3.5 and 2.6
+                    alpha1 = theta[self.ncrparams + int(self.modflags['grscaling']) + i*self.nLISparams + 1] 
+                    if alpha1 < 2.6 or alpha1> 3.5:
+                        return -np.inf
+                    
+                    # alpha2(ME) between 2.7 and 2.2
+                    alpha2 = theta[-3]
+                    if alpha2 < 2.2 or alpha2 > 2.7:
+                        return -np.inf
+                    
+                    # break rigidity 1 (H-M) between 1e3 to 1e4 MeV
+                    rig_br1 = theta[-2]
+                    if rig_br1 < 1e3 or rig_br1 > 1e4:
                         return -np.inf
                     
                     # delta1(H-M) and delta2(M-L) between 0.05 and 1.0
@@ -874,6 +964,10 @@ class Model():
                 # alpha3(ML) = -0.5, pc_br2 = 0.5 GeV, delta2(M-L) = 0.5
                 startpos+=[-0.5, 500., 0.5]
         
+            elif self.modflags['pl']=='dbr2':
+                # alpha3(ML) = -0.5, rig_br2 = 0.5 GeV, delta2(M-L) = 0.5
+                startpos+=[-0.5, 500., 0.5]
+        
         # add universal delta (Strong 2015 ICRC)
         if self.modflags['pl']=='br' and self.modflags['one_d']:
             if self.modflags['fixd']==None:
@@ -881,6 +975,10 @@ class Model():
 
         # add common alpha2(M)=2.37, pc_br1(H-M)=5870 MeV, delta1 = 0.5
         if self.modflags['pl']=='dbr':
+            startpos+=[2.37, 5870., 0.5]
+        
+        # add common alpha2(M)=2.37, pc_br1(H-M)=5870 MeV, delta1 = 0.5
+        if self.modflags['pl']=='dbr2':
             startpos+=[2.37, 5870., 0.5]
         
         # print ("## startpos=", startpos)
@@ -892,7 +990,8 @@ class Model():
         LISparams={'s': ['norm','alpha1'],
                    'b': ['norm','alpha1','alpha'],
                    'br': ['norm','alpha1','alpha2', 'Pbr'],
-                   'dbr': ['norm', 'alpha1', 'alpha3', 'Pbr2', 'delta2']}
+                   'dbr': ['norm', 'alpha1', 'alpha3', 'Pbr2', 'delta2'],
+                   'dbr2': ['norm', 'alpha1', 'alpha3', 'Rbr2', 'delta2']}
         
         paramnames=[]
         
@@ -918,6 +1017,9 @@ class Model():
 
         if self.modflags['pl']=='dbr':
             paramnames+=['alpha2', 'Pbr1', 'delta1']
+
+        if self.modflags['pl']=='dbr2':
+            paramnames+=['alpha2', 'Rbr1', 'delta1']
 
         # print ("## paramnames=", paramnames)
         return np.array(paramnames)
