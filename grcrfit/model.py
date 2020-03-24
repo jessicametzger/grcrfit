@@ -272,12 +272,14 @@ class Model():
                 current_el=[]
                 for j in range(len(self.GREs)):
                     
-                    # GR energy is some factor smaller than CR energy; take from Mori 1997
-                    factors=np.repeat(10,self.GREs[i].shape[0])
+                    # old code: GR energy is about 10 times smaller than CR p energy (take from Mori 1997)
+                    # factors=np.repeat(10.,self.GREs[i].shape[0])
+                    # new code: Kachelriess +14 refers to CR flux at Ek=Eg, so we use factor=1 instead. So CRp_atGRE literary means
+                    #  CR momentum at Ek=Eg
+                    factors=np.repeat(1.,self.GREs[i].shape[0])
                     current_el+=[ph.E_to_p(self.GREs[i]*ph.M_DICT[subkey]*factors, ph.M_DICT[subkey])]
                     
                 self.CRp_atGRE[key][subkey] = current_el
-        
         
         # HELPER FUNCTIONS FOR LNLIKE
         # (initialize before since they only have to be initialized once)
@@ -382,7 +384,8 @@ class Model():
         for key in enf.enh_els_ls:
             
             # if need to use old LIS data
-            if not all(x in self.fit_els for x in enf.enh_els[key]):
+#            if not all(x in self.fit_els for x in enf.enh_els[key]):
+            if 1:
                 
                 # add old spectral index
                 self.CRinds[key] = enf.LIS_params[key][0]
@@ -392,7 +395,11 @@ class Model():
                 for i in range(len(self.GRdata)):
                     mean_mass = np.mean([ph.M_DICT[x] for x in enf.enh_els[key]])
                     
-                    factors=np.repeat(10.,self.GREs[i].shape[0])
+                    # old code: GR energy is about 10 times smaller than CR p energy (take from Mori 1997)
+                    # factors=np.repeat(10.,self.GREs[i].shape[0])
+                    # new code: Kachelriess +14 refers to CR flux at Ek=Eg, so we use factor=1 instead. So CRp_atGRE literary means
+                    #  CR momentum at Ek=Eg
+                    factors=np.repeat(1.,self.GREs[i].shape[0])
                     self.CRfluxes[key] += [enf.Honda_LIS(enf.LIS_params[key], self.GREs[i]*factors)]
         
         # empty flux array (same shame as in GRdata)
@@ -483,6 +490,9 @@ class Model():
             enh_fs = [np.copy(x) for x in self.empty_fluxes]
             enh_fs = enf.enh(self.modflags['enh'], self.modflags['enhext'], enh_fs, self.GREs, CRfluxes_theta, CRinds_theta)
             
+            # print for diagnostics
+            # print ("### self.GREs=", self.GREs)
+            # print ("### enh_fs=", enh_fs)
             return enh_fs
             
         # get GR fluxes at log10 of GR energies
