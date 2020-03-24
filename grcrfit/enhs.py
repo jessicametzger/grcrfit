@@ -77,9 +77,9 @@ def enh(enhtype, ext, enh_fs, GREs, CRfluxes, CRinds):
         E=np.copy(GREs[k])
         logE = np.log10(E)
         
-        # assume the 1 GeV (1e3 MeV) enhancement values at lower energies
+        # assume a constant enhancement factor below the 10 GeV (10e3 MeV)
         if not ext:
-            first_ind = np.where(logE >= 3)[0][0]
+            first_ind = np.where(logE >= 4)[0][0]
             logE = logE[first_ind:]
         else:
             first_ind = 0
@@ -108,4 +108,4 @@ def enh(enhtype, ext, enh_fs, GREs, CRfluxes, CRinds):
                 enh_fs[k][0:first_ind] = enh_fs[k][first_ind]
     
     return enh_fs
-    
+
