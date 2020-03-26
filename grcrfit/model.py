@@ -723,16 +723,14 @@ class Model():
                     if alpha1 <= alpha2:
                         return -np.inf
                     
-                    # break momentum 1 (H-M) more than 1 GeV and break momentum 2 (M-L) less than 1 GeV
+                    # break momentum 1 (H-M) should be larger than break momentum 2 (M-L)
                     # We may want to share the break among spices in rigidity (rather than momentum). So rig_br also calculated 
                     pc_br2 = theta[self.ncrparams + int(self.modflags['grscaling']) + i*self.nLISparams + 3]
                     massNumber = ph.M_DICT[self.LISorder[i].lower()]
                     atomNumber = ph.Z_DICT[self.LISorder[i].lower()]
                     rig_br1 = pc_br1/atomNumber # in MV
                     rig_br2 = pc_br2/atomNumber # in MV
-                    if pc_br1 <= 1e3:
-                        return -np.inf
-                    if pc_br2 >= 1e3:
+                    if pc_br1 < pc_br2:
                         return -np.inf
                     
                     # delta1(H-M) and delta2(M-L) above 0
@@ -762,11 +760,9 @@ class Model():
                     if alpha1 <= alpha2:
                         return -np.inf
                     
-                    # break rigidity 1 (H-M) more than 1 GeV and break rigidity 2 (M-L) less than 1 GeV
+                    # break rigidity 1 (H-M) should be larger than break rigidity 2 (M-L)
                     rig_br2 = theta[self.ncrparams + int(self.modflags['grscaling']) + i*self.nLISparams + 3]
-                    if rig_br1 <= 1e3:
-                        return -np.inf
-                    if rig_br2 >= 1e3:
+                    if rig_br1 < rig_br2:
                         return -np.inf
                     
                     # delta1(H-M) and delta2(M-L) above 0
@@ -813,14 +809,14 @@ class Model():
                     if pc_br < 1e3 or pc_br > 1e4:
                         return -np.inf
                     
-                    # delta between 0.05 and 1.0
+                    # delta between 0.05 and 2.0
                     if not self.modflags['one_d']:
                         delta = theta[self.ncrparams + int(self.modflags['grscaling']) + i*self.nLISparams + 4] 
-                        if delta < 0.05 or delta > 1.0:
+                        if delta < 0.05 or delta > 2.0:
                             return -np.inf
                     elif self.modflags['fixd']==None:
                         delta = theta[-1]
-                        if delta < 0.05 or delta > 1.0: return -np.inf
+                        if delta < 0.05 or delta > 2.0: return -np.inf
 
                 # force params to be within limits from Strong 2015 for double-broken power-law model.
                 if self.modflags['priorlimits'] and self.modflags['pl']=='dbr':
@@ -842,21 +838,27 @@ class Model():
                     if alpha2 < 2.2 or alpha2 > 2.7:
                         return -np.inf
                     
-                    # break momentum 1 (H-M) between 1e3 to 1e4 MeV
+                    # break momentum 1 (H-M) between pc_th(1e3) to 1e4 MeV, and
+                    # break momentum 2 (M-L) between 1e2 MeV to righ_th(1e3 MeV)
                     # We may want to share the break among spices in rigidity (rather than momentum). So rig_br also calculated 
                     pc_br1 = theta[-2]
                     massNumber = ph.M_DICT[self.LISorder[i].lower()]
                     atomNumber = ph.Z_DICT[self.LISorder[i].lower()]
                     rig_br1 = pc_br1/atomNumber # in MV
-                    if pc_br1 < 1e3 or pc_br1 > 1e4:
+                    pc_th = 1e3
+                    if (self.LISorder[i].lower() == 'he'):
+                      pc_th = 2e3
+                    if pc_br1 < pc_th or pc_br1 > 1e4:
+                        return -np.inf
+                    if pc_br2 < 1e2 or pc_br2 > pc_th:
                         return -np.inf
                     
-                    # delta1(H-M) and delta2(M-L) between 0.05 and 1.0
+                    # delta1(H-M) and delta2(M-L) between 0.05 and 2.0
                     delta1 = theta[-1]
                     delta2 = theta[self.ncrparams + int(self.modflags['grscaling']) + i*self.nLISparams + 4]
-                    if  delta1 < 0.05 or delta1 > 1.0:
+                    if  delta1 < 0.05 or delta1 > 2.0:
                         return -np.inf
-                    if  delta2 < 0.05 or delta2 > 1.0:
+                    if  delta2 < 0.05 or delta2 > 2.0:
                         return -np.inf
                     
                 # force params to be within limits from Strong 2015 for double-broken power-law model.
@@ -879,17 +881,23 @@ class Model():
                     if alpha2 < 2.2 or alpha2 > 2.7:
                         return -np.inf
                     
-                    # break rigidity 1 (H-M) between 1e3 to 1e4 MeV
+                    # break rigidity 1 (H-M) between righ_th(1e3) to 1e4 MV, and
+                    # break rigidity 2 (M-L) between 1e2 MV to righ_th(1e3 MV)
                     rig_br1 = theta[-2]
-                    if rig_br1 < 1e3 or rig_br1 > 1e4:
+                    rig_th = 1e3
+                    if (self.LISorder[i].lower() == 'he'):
+                      rig_th = 2e3
+                    if rig_br1 < rig_th or rig_br1 > 1e4:
+                        return -np.inf
+                    if rig_br2 < 1e2 or rig_br2 > rig_th:
                         return -np.inf
                     
-                    # delta1(H-M) and delta2(M-L) between 0.05 and 1.0
+                    # delta1(H-M) and delta2(M-L) between 0.05 and 2.0
                     delta1 = theta[-1]
                     delta2 = theta[self.ncrparams + int(self.modflags['grscaling']) + i*self.nLISparams + 4]
-                    if  delta1 < 0.05 or delta1 > 1.0:
+                    if  delta1 < 0.05 or delta1 > 2.0:
                         return -np.inf
-                    if  delta2 < 0.05 or delta2 > 1.0:
+                    if  delta2 < 0.05 or delta2 > 2.0:
                         return -np.inf
                     
             return lp_phi(theta)
