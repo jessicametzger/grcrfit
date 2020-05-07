@@ -254,8 +254,11 @@ def bestfit_plot(flag, cutoff=0):
         for subkey in enf.enh_els[key]:
             current_el=[]
             for j in range(len(myModel.GREs)):
-                # GR energy is some factor smaller than CR energy; take from Mori 1997
-                factors=np.repeat(10.,myModel.GREs[j].shape[0])
+                # old code: GR energy is about 10 times smaller than CR p energy (take from Mori 1997)
+                # factors=np.repeat(10.,myModel.GREs[j].shape[0])
+                # new code: Kachelriess +14 refers to CR flux at Ek=Eg, so we use factor=1 instead. So CRp_atGRE literary means
+                # CR momentum at Ek=Eg
+                factors=np.repeat(1.,myModel.GREs[j].shape[0])
                 current_el+=[ph.E_to_p(myModel.GREs[j]*ph.M_DICT[subkey]*factors, ph.M_DICT[subkey])]
             myModel.CRp_atGRE[key][subkey] = current_el
     myModel.CRfluxes={'h': None, 'he': None, 'cno': None, 'mgsi': None, 'fe': None}
@@ -265,8 +268,11 @@ def bestfit_plot(flag, cutoff=0):
             for i in range(len(myModel.GREs)):
                 mean_mass = np.mean([ph.M_DICT[x] for x in enf.enh_els[key]])
                 
-                # GR to CR energy
-                factors=np.repeat(10.,myModel.GREs[i].shape[0])
+                # old code: GR energy is about 10 times smaller than CR p energy (take from Mori 1997)
+                # factors=np.repeat(10.,myModel.GREs[i].shape[0])
+                # new code: Kachelriess +14 refers to CR flux at Ek=Eg, so we use factor=1 instead. So CRp_atGRE literary means
+                # CR momentum at Ek=Eg
+                factors=np.repeat(1.,myModel.GREs[i].shape[0])
                 myModel.CRfluxes[key] += [enf.Honda_LIS(enf.LIS_params[key], myModel.GREs[i]*factors)]
     myModel.empty_fluxes=[np.zeros(myModel.GREs[i].shape) for i in range(len(myModel.GREs))]
     myModel.GRlogEgs=[np.log10(myModel.GREs[i]) for i in range(len(myModel.GREs))]
@@ -484,8 +490,11 @@ def range_plot(flag, cutoff=0):
             for subkey in enf.enh_els[key]:
                 current_el=[]
                 for j in range(len(myModel.GREs)):
-                    # GR energy is some factor smaller than CR energy; take from Mori 1997
-                    factors=np.repeat(10.,myModel.GREs[j].shape[0])
+                    # old code: GR energy is about 10 times smaller than CR energy (take from Mori 1997)
+                    # factors=np.repeat(10.,myModel.GREs[j].shape[0])
+                    # new code: Kachelriess +14 refers to CR flux at Ek=Eg, so we use factor=1 instead. So CRp_atGRE literary means
+                    # CR momentum at Ek=Eg
+                    factors=np.repeat(1.,myModel.GREs[j].shape[0])
                     current_el+=[ph.E_to_p(myModel.GREs[j]*ph.M_DICT[subkey]*factors, ph.M_DICT[subkey])]
                 myModel.CRp_atGRE[key][subkey] = current_el
         myModel.CRfluxes={'h': None, 'he': None, 'cno': None, 'mgsi': None, 'fe': None}
@@ -495,8 +504,11 @@ def range_plot(flag, cutoff=0):
                 for i in range(len(myModel.GREs)):
                     mean_mass = np.mean([ph.M_DICT[x] for x in enf.enh_els[key]])
 
-                    # GR to CR energy
-                    factors=np.repeat(10.,myModel.GREs[i].shape[0])
+                    # old code: GR energy is about 10 times smaller than CR energy (take from Mori 1997)
+                    # factors=np.repeat(10.,myModel.GREs[i].shape[0])
+                    # new code: Kachelriess +14 refers to CR flux at Ek=Eg, so we use factor=1 instead. So CRp_atGRE literary means
+                    # CR momentum at Ek=Eg
+                    factors=np.repeat(1.,myModel.GREs[i].shape[0])
                     myModel.CRfluxes[key] += [enf.Honda_LIS(enf.LIS_params[key], myModel.GREs[i]*factors)]
         myModel.empty_fluxes=[np.zeros(myModel.GREs[i].shape) for i in range(len(myModel.GREs))]
         myModel.GRlogEgs=[np.log10(myModel.GREs[i]) for i in range(len(myModel.GREs))]
