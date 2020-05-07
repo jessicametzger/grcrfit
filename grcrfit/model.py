@@ -23,6 +23,7 @@ from . import enhs as enf
 #    or with momentum and velocity, each getting its own index ('b')
 # - 'enh' = 0 or 1, determines which enhancement framework to use out of the two given
 #    in Kachelriess +14 (0 for QGS and 1 for LHC)
+# - 'ppmodel' = 0 or 1, determined which pp-interaction model (Kamae +06 or a hybrid (Kamae +06 and AAfrag)) to use
 # - 'weights' = 3-item list giving relative weights of CR, Voyager, and GR log-like.
 #    Note that priors aren't weighted, so may need to tune weight normalization to get
 #    correct relative weighting between likelihood & prior. If weights==None, no weighting
@@ -30,7 +31,7 @@ from . import enhs as enf
 # - 'vphi_err': Voyager phi is limeted from the initial value within +/- of this value in priors
 # - 'cr/grscaling' = True or False, whether or not to scale all CR experiments  except AMS-02 
 #    or all GR experiments to correct for systematic errors
-# - 'enhext' = True or False
+# - 'enhext' = True or False. If True we calculate the enhancement factor explicitly assuming single PL with index of highE. If False we extrapolate below 10 GeV.
 # - 'priorlimits' = True or False, whether or not to constrain the parameter in specified ranges
 # - 'fixd': If "None" the delta is treated as a free parameter. If some number is given, deita is fixed to that value.
 # - 'one_d' = True or False, whether we use single value or multiple values for delta (sharpness of the break)
@@ -377,15 +378,15 @@ class Model():
         
         # ENHANCEMENT FACTOR
             
-        # compile old LIS fluxes, inds (if not included in model) for enhancement factor calculation
+        # compile old LIS fluxes, inds (if not included in model) for enhancement factor calculation (Honda +04)
         self.CRfluxes={'h': None, 'he': None, 'cno': None, 'mgsi': None, 'fe': None}
         self.CRinds={'h': None, 'he': None, 'cno': None, 'mgsi': None, 'fe': None}
         self.fit_els=[x.lower() for x in list(self.LISorder)]
         for key in enf.enh_els_ls:
             
-            # if need to use old LIS data
-#            if not all(x in self.fit_els for x in enf.enh_els[key]):
-            if 1:
+            # if some particle types are not fit, we need to use old LIS data (Honda +04)
+            if not all(x in self.fit_els for x in enf.enh_els[key]):
+            # if 1: # test to see the enhancemen factor calculation based on the LIS of Honda +04
                 
                 # add old spectral index
                 self.CRinds[key] = enf.LIS_params[key][0]
@@ -413,7 +414,6 @@ class Model():
             
             # add theta values to CRfluxes/inds
             for key in CRfluxes_theta:
-                
                 # if these CR LIS's are included in model (not retrieving old values)
                 if CRfluxes_theta[key] == None:
                     
@@ -491,6 +491,8 @@ class Model():
             enh_fs = enf.enh(self.modflags['enh'], self.modflags['enhext'], enh_fs, self.GREs, CRfluxes_theta, CRinds_theta)
             
             # print for diagnostics
+            # print ("### CRfluxes_theta=", CRfluxes_theta)
+            # print ("### CRinds_theta=", CRinds_theta)
             # print ("### self.GREs=", self.GREs)
             # print ("### enh_fs=", enh_fs)
             return enh_fs
@@ -517,7 +519,10 @@ class Model():
             if self.modflags['pl']=='dbr2':
                 LIS_params_pp+=[theta[-3], theta[-2], theta[-1]]
 
-            return grf.get_fluxes_pp(LIS_params_pp, self.GRlogEgs, self.crformula_IS)
+            if self.modflags['ppmodel']==0:
+                return grf.get_fluxes_pp(LIS_params_pp, self.GRlogEgs, self.crformula_IS)
+            elif self.modflags['ppmodel']==1:
+                return grf.get_fluxes_pp_hybrid(LIS_params_pp, self.GRlogEgs, self.crformula_IS)
         
         # retrieve e-bremss values at desired energies
         def ebrfunc():
