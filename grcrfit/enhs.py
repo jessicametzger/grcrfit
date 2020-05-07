@@ -65,6 +65,7 @@ abund_rats=np.array([1,0.096,1.38e-3,2.11e-4,3.25e-5])
 # sum along interaction axis
 
 # enhtype is 0 (QGSjet) or 1 (LHC)
+# ext = True (explicit calculation assuing a single PL with index in highE) or False (extrapolate below 10 GeV) for enhancement factor calculation
 # enh_fs = zeros array of the right shape for enhancement factors (same as GRdata, corresponding energy arrays)
 # GRdata should be same as everywhere else (see construction in model.py)
 # CRfluxes is dict of 5 lists (length=len(GRdata)) of flux arrs at GRdata energies
