@@ -200,7 +200,7 @@ class Fitter:
     
     # Initialize the Fitter object
     def __init__(self, data, nsteps=5000, nwalkers=None, PT=True, ntemps=10, processes=None, rerun=False, flag=None,\
-                 modflags = {'pl': 's', 'enh': 0, 'weights': None, 'priors': 0, 'crscaling': False,
+                 modflags = {'pl': 's', 'ppmodel': 0, 'enh': 0, 'weights': None, 'priors': 0, 'crscaling': False,
                              'grscaling': False, 'enhext': False, 'priorlimits': False, 'vphi_err': 100.,
                              'fixd': None, 'one_d': True, 'fix_vphi': None}):
         
@@ -217,6 +217,8 @@ class Fitter:
         # fill in missing modflag keys with defaults
         try: test=self.modflags['pl']
         except KeyError: self.modflags['pl'] = 's'
+        try: test=self.modflags['ppmodel']
+        except KeyError: self.modflags['ppmodel'] = 0
         try: test=self.modflags['enh']
         except KeyError: self.modflags['enh'] = 0
         try: test=self.modflags['weights']
@@ -323,7 +325,7 @@ class Run:
     
     # Initialize Run object
     def __init__(self, flag, fdict, rerun=False, nwalkers=None,
-                 modflags = {'pl': 's', 'enh': 0, 'weights': None, 'priors': 0, 'crscaling': False,
+                 modflags = {'pl': 's', 'ppmodel': 0, 'enh': 0, 'weights': None, 'priors': 0, 'crscaling': False,
                              'grscaling': False, 'enhext': False, 'priorlimits': False, 'vphi_err': 100.,
                               'fixd': None, 'one_d': True, 'fix_vphi': None}):
         
