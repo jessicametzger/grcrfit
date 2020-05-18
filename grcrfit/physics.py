@@ -55,7 +55,7 @@ def p_to_E(p,M):
     Ek = -Em + np.sqrt(Em**2. + (p*C_SI)**2)    
     return Ek
 
-# Ekin in MeV, M in # nucleons --> Etot in MeV
+# Ek in MeV, M in # nucleons --> Etot in MeV
 def get_Etot(Ek, M):
     Em=931.49*M #mass energy
     return Ek + Em
