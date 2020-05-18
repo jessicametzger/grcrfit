@@ -302,7 +302,6 @@ def bestfit_plot(flag, cutoff=0):
             scale = 1
 
         grfluxes[i] = grfluxes[i]*scale
-            
     
     # CR PLOTS
     for i in range(len(crfluxes_d)):
@@ -344,6 +343,14 @@ def bestfit_plot(flag, cutoff=0):
     for i in range(len(grfluxes_d)):
         x_axis=myModel.GRdata[i][:,0]
         
+        # grfluxes[i] has been already scaled. We also scale each component if necessary
+        if myModel.modflags['grscaling']:
+            scale = params[myModel.ncrparams]
+        else:
+            scale = 1
+        grfluxes_pp[i] = grfluxes_pp[i]*scale
+        ebrfluxes[i] = ebrfluxes[i]*scale    
+
         # plot all model components
         plt.plot(myModel.GREs[i]*1e-3, enh_f[i]*grfluxes_pp[i], color='red', label=r'model, CR',lw=1)
         plt.plot(myModel.GREs[i]*1e-3, ebrfluxes[i], color='green', label=r'model, e-br',lw=1)
