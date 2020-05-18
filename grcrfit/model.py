@@ -503,26 +503,59 @@ class Model():
         def grfunc_pp(theta):
             LIS_params_pp = list(theta[self.ncrparams + int(self.modflags['grscaling']) + self.nLISparams*self.LISdict['h']:\
                                        self.ncrparams + int(self.modflags['grscaling']) + self.nLISparams*(self.LISdict['h']+1)])
+            LIS_params_pHe = list(theta[self.ncrparams + int(self.modflags['grscaling']) + self.nLISparams*self.LISdict['h']:\
+                                       self.ncrparams + int(self.modflags['grscaling']) + self.nLISparams*(self.LISdict['h']+1)])
+            LIS_params_Hep = list(theta[self.ncrparams + int(self.modflags['grscaling']) + self.nLISparams*self.LISdict['he']:\
+                                       self.ncrparams + int(self.modflags['grscaling']) + self.nLISparams*(self.LISdict['he']+1)])
+            LIS_params_HeHe = list(theta[self.ncrparams + int(self.modflags['grscaling']) + self.nLISparams*self.LISdict['he']:\
+                                       self.ncrparams + int(self.modflags['grscaling']) + self.nLISparams*(self.LISdict['he']+1)])
             
             # add universal delta parameter
             if self.modflags['pl']=='br' and self.modflags['one_d']:
                 if self.modflags['fixd']==None:
                     LIS_params_pp+=[theta[-1]]
+                    LIS_params_pHe+=[theta[-1]]
+                    LIS_params_Hep+=[theta[-1]]
+                    LIS_params_HeHe+=[theta[-1]]
                 else:
                     LIS_params_pp+=[self.modflags['fixd']]
+                    LIS_params_pHe+=[self.modflags['fixd']]
+                    LIS_params_Hep+=[self.modflags['fixd']]
+                    LIS_params_HeHe+=[self.modflags['fixd']]
                 
             # add common alpha2(ME), pc_br1(H-M), delta1(H-M)
             if self.modflags['pl']=='dbr':
                 LIS_params_pp+=[theta[-3], theta[-2], theta[-1]]
+                LIS_params_pHe+=[theta[-3], theta[-2], theta[-1]]
+                LIS_params_Hep+=[theta[-3], theta[-2], theta[-1]]
+                LIS_params_HeHe+=[theta[-3], theta[-2], theta[-1]]
 
             # add common alpha2(ME), rig_br1(H-M), delta1(H-M)
             if self.modflags['pl']=='dbr2':
                 LIS_params_pp+=[theta[-3], theta[-2], theta[-1]]
+                LIS_params_pHe+=[theta[-3], theta[-2], theta[-1]]
+                LIS_params_Hep+=[theta[-3], theta[-2], theta[-1]]
+                LIS_params_HeHe+=[theta[-3], theta[-2], theta[-1]]
 
             if self.modflags['ppmodel']==0:
                 return grf.get_fluxes_pp(LIS_params_pp, self.GRlogEgs, self.crformula_IS)
             elif self.modflags['ppmodel']==1:
                 return grf.get_fluxes_pp_hybrid(LIS_params_pp, self.GRlogEgs, self.crformula_IS)
+            elif self.modflags['ppmodel']==2:
+                # If ppmodel=2, we will calculate gamma-ray fluxes for pp, pHe, Hep, and HeHe interactions. Here we obtain the flux for pp interactions.
+                # return grf.get_fluxes_pp_hybrid(LIS_params_pp, self.GRlogEgs, self.crformula_IS)
+                #
+                # for test. cross section of p-He interaction is ~4 times larger than that of pp. 
+                # So this returns similar gamma-ray flux to that for "ppmodel=1"
+                # return [0.25*v for v in grf.get_fluxes_pHe_hybrid(LIS_params_pHe, self.GRlogEgs, self.crformula_IS)] 
+                #
+                # for test. cross section of He-p interaction is ~4 times larger than that of pp, and the He flux is ~18 times smaller than that of p (at the same Ekin/N).
+                # So this returns similar gamma-ray flux to that of "ppmodel=1"
+                # return [4.5*v for v in grf.get_fluxes_Hep_hybrid(LIS_params_Hep, self.GRlogEgs, self.crformula_IS)]
+                #
+                # for test. cross section of He-He interaction is ~15 times larger than that of pp, and the He flux is ~18 times smaller than that of p (at the same Ekin/N).
+                # So this returns similar gamma-ray flux to that of "ppmodel=1"
+                return [1.25*v for v in grf.get_fluxes_HeHe_hybrid(LIS_params_HeHe, self.GRlogEgs, self.crformula_IS)]
         
         # retrieve e-bremss values at desired energies
         def ebrfunc():
@@ -964,8 +997,9 @@ class Model():
 
         # add gr scaling factor
         if self.modflags['grscaling']:
-            startpos += [1.]
-        
+            startpos += [1.] # nominal value for Kamae +06 model
+            # startpos += [1.25] # nominal value for a hybrid model (Kamae +06 and AAgrag)
+
         # add LIS parameters
         for i in range(self.LISorder.shape[0]):
             startpos+=ph.LIS_DICT[self.LISorder[i]] #initialize at former best-fit LIS norm, index
