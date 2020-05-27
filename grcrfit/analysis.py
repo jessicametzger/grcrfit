@@ -165,14 +165,22 @@ def bestfit_plot(flag, cutoff=0):
         crfluxes_d = myModel.crfunc(params)
     
     # enhancement factors
-    enh_f_d = myModel.enhfunc(params)
+    enh1_f_d = myModel.enhfuncs(params)['enh1']
+    enh2_f_d = myModel.enhfuncs(params)['enh2']
+#    enh_f_d = myModel.enhfunc(params)
     
     # GR model
     grfluxes_d = []
     if len(myModel.GRdata)!=0:
 
         # get p-p GR fluxes at gamma data's energies
-        grfluxes_pp_d = myModel.grfunc_pp(params)
+        if (myModel.modflags['ppmodel']==0 or myModel.modflags['ppmodel']==1):
+            grfluxes_pp_d = myModel.grfunc_pp(params)
+        elif myModel.modflags['ppmodel']==2:
+            grfluxes_pp_d = myModel.grfuncs(params)['grfluxes_pp']
+            grfluxes_pHe_d = myModel.grfuncs(params)['grfluxes_pHe']
+            grfluxes_Hep_d = myModel.grfuncs(params)['grfluxes_Hep']
+            grfluxes_HeHe_d = myModel.grfuncs(params)['grfluxes_HeHe']
         grfluxes_d = [np.copy(x) for x in grfluxes_pp_d]
         
         # get e-bremss. fluxes
@@ -180,7 +188,11 @@ def bestfit_plot(flag, cutoff=0):
 
         # enhance p-p GR fluxes & add e-bremss data
         for i in range(len(myModel.GRdata)):
-            grfluxes_d[i] = enh_f_d[i]*grfluxes_pp_d[i] + ebrfluxes_d[i]
+            if (myModel.modflags['ppmodel']==0 or myModel.modflags['ppmodel']==1):
+                grfluxes_d[i] = enh1_f_d[i]*grfluxes_pp_d[i] + ebrfluxes_d[i]
+            elif (myModel.modflags['ppmodel']==2):
+                # CR chemical composition has been already take into account in grfluxes_**. Here ISM He abundance is taken into account
+                grfluxes_d[i] = enh2_f_d[i]*grfluxes_pp_d[i] + grfluxes_pHe_d[i]*enf.abund_rats_dict['he'] + grfluxes_Hep_d[i] + grfluxes_HeHe_d[i]*enf.abund_rats_dict['he'] + ebrfluxes_d[i]
             
             # add scaling parameter if gr scaling
             if myModel.modflags['grscaling']:
@@ -282,10 +294,18 @@ def bestfit_plot(flag, cutoff=0):
     # get new, finer lists of model values
     if len(myModel.CRdata)!=0:
         crfluxes = myModel.crfunc(params)
-    enh_f = myModel.enhfunc(params)
+    enh1_f = myModel.enhfuncs(params)['enh1']
+    enh2_f = myModel.enhfuncs(params)['enh2']
+#    enh_f = myModel.enhfunc(params)
     
     # get p-p GR fluxes at gamma data's energies
-    grfluxes_pp = myModel.grfunc_pp(params)
+    if (myModel.modflags['ppmodel']==0 or myModel.modflags['ppmodel']==1):
+        grfluxes_pp = myModel.grfunc_pp(params)
+    elif myModel.modflags['ppmodel']==2:
+        grfluxes_pp = myModel.grfuncs(params)['grfluxes_pp']
+        grfluxes_pHe = myModel.grfuncs(params)['grfluxes_pHe']
+        grfluxes_Hep = myModel.grfuncs(params)['grfluxes_Hep']
+        grfluxes_HeHe = myModel.grfuncs(params)['grfluxes_HeHe']
     grfluxes = [np.copy(x) for x in grfluxes_pp]
 
     # get e-bremss. fluxes
@@ -293,7 +313,11 @@ def bestfit_plot(flag, cutoff=0):
 
     # enhance p-p GR fluxes & add e-bremss data
     for i in range(len(myModel.GRdata)):
-        grfluxes[i] = enh_f[i]*grfluxes_pp[i] + ebrfluxes[i]
+        if (myModel.modflags['ppmodel']==0 or myModel.modflags['ppmodel']==1):
+            grfluxes[i] = enh1_f[i]*grfluxes_pp[i] + ebrfluxes[i]
+        elif (myModel.modflags['ppmodel']==2):
+            # CR chemical composition has been already take into account in grfluxes_**. Here ISM He abundance is taken into account
+            grfluxes[i] = enh2_f[i]*grfluxes_pp[i] + grfluxes_pHe[i]*enf.abund_rats_dict['he'] + grfluxes_Hep[i] + grfluxes_HeHe[i]*enf.abund_rats_dict['he'] + ebrfluxes[i]
                     
         # add scaling parameter if gr scaling
         if myModel.modflags['grscaling']:
@@ -352,7 +376,11 @@ def bestfit_plot(flag, cutoff=0):
         ebrfluxes[i] = ebrfluxes[i]*scale    
 
         # plot all model components
-        plt.plot(myModel.GREs[i]*1e-3, enh_f[i]*grfluxes_pp[i], color='red', label=r'model, CR',lw=1)
+        if (myModel.modflags['ppmodel']==0 or myModel.modflags['ppmodel']==1):
+            plt.plot(myModel.GREs[i]*1e-3, enh1_f[i]*grfluxes_pp[i], color='red', label=r'model, CR',lw=1)
+        elif (myModel.modflags['ppmodel']==2):
+            # CR chemical composition has been already take into account in grfluxes_**. Here ISM He abundance is taken into account
+            plt.plot(myModel.GREs[i]*1e-3, enh2_f[i]*grfluxes_pp[i]+grfluxes_pHe[i]*enf.abund_rats_dict['he']+grfluxes_Hep[i]+grfluxes_HeHe[i]*enf.abund_rats_dict['he'], color='red', label=r'model, CR',lw=1)
         plt.plot(myModel.GREs[i]*1e-3, ebrfluxes[i], color='green', label=r'model, e-br',lw=1)
         plt.plot(myModel.GREs[i]*1e-3, grfluxes[i], color='blue', 
                  label=r'model, $\chi^2$ = '+str(round(gr_chisqu[i],2)),lw=1)
@@ -383,7 +411,10 @@ def bestfit_plot(flag, cutoff=0):
         x_axis=myModel.GREs[i]
         
         # plot model
-        plt.plot(x_axis*1e-3, enh_f[i],lw=1)
+        if (myModel.modflags['ppmodel']==0 or myModel.modflags['ppmodel']==1):
+            plt.plot(x_axis*1e-3, enh1_f[i],lw=1)
+        elif (myModel.modflags['ppmodel']==2):
+            plt.plot(x_axis*1e-3, enh2_f[i],lw=1)
         plt.title('$\t{'+myModel.GRexps[i].upper().replace('_',' ')+', Enhancement}$')
         plt.xlabel('E [GeV]')
         plt.ylabel('enhancement factor')
@@ -453,13 +484,21 @@ def range_plot(flag, cutoff=0):
         crfluxes_d = myModel.crfunc(params)
 
         # enhancement factors
-        enh_f_d = myModel.enhfunc(params)
+        enh1_f_d = myModel.enhfuncs(params)['enh1']
+        enh2_f_d = myModel.enhfuncs(params)['enh2']
+#        enh_f_d = myModel.enhfunc(params)
 
         # GR model
         if len(myModel.GRdata)!=0:
 
             # get p-p GR fluxes at gamma data's energies
-            grfluxes_pp_d = myModel.grfunc_pp(params)
+            if (myModel.modflags['ppmodel']==0 or myModel.modflags['ppmodel']==1):
+                grfluxes_pp_d = myModel.grfunc_pp(params)
+            elif (myModel.modflags['ppmodel']==2):
+                grfluxes_pp_d = myModel.grfuncs(params)['grfluxes_pp']
+                grfluxes_pHe_d = myModel.grfuncs(params)['grfluxes_pHe']
+                grfluxes_Hep_d = myModel.grfuncs(params)['grfluxes_Hep']
+                grfluxes_HeHe_d = myModel.grfuncs(params)['grfluxes_HeHe']
             grfluxes_d = [np.copy(x) for x in grfluxes_pp_d]
 
             # get e-bremss. fluxes
@@ -467,7 +506,11 @@ def range_plot(flag, cutoff=0):
 
             # enhance p-p GR fluxes & add e-bremss data
             for i in range(len(myModel.GRdata)):
-                grfluxes_d[i] = enh_f_d[i]*grfluxes_pp_d[i] + ebrfluxes_d[i]
+                if (myModel.modflags['ppmodel']==0 or myModel.modflags['ppmodel']==1):
+                    grfluxes_d[i] = enh1_f_d[i]*grfluxes_pp_d[i] + ebrfluxes_d[i]
+                elif (myModel.modflags['ppmodel']==2):
+                    # CR chemical composition has been already take into account in grfluxes_**. Here ISM He abundance is taken into account
+                    grfluxes_d[i] = enh2_f_d[i]*grfluxes_pp_d[i] + grfluxes_pHe_d[i]*enf.abund_rats_dict['he'] + grfluxes_Hep_d[i] + grfluxes_HeHe_d[i]*enf.abund_rats_dict['he'] + ebrfluxes_d[i]
 
                 # add scaling parameter if gr scaling
                 if myModel.modflags['grscaling']:
@@ -529,10 +572,18 @@ def range_plot(flag, cutoff=0):
         for i in range(len(crfluxes)):
             crfluxes_all[i][k,:] += crfluxes[i]
         
-        enh_f = myModel.enhfunc(params)
+        enh1_f = myModel.enhfuncs(params)['enh1']
+        enh2_f = myModel.enhfuncs(params)['enh2']
+        # enh_f = myModel.enhfunc(params)
 
         # get p-p GR fluxes at gamma data's energies
-        grfluxes_pp = myModel.grfunc_pp(params)
+        if (myModel.modflags['ppmodel']==0 or myModel.modflags['ppmodel']==1):
+            grfluxes_pp = myModel.grfunc_pp(params)
+        elif (myModel.modflags['ppmodel']==2):
+            grfluxes_pp = myModel.grfuncs(params)['grfluxes_pp']
+            grfluxes_pHe = myModel.grfuncs(params)['grfluxes_pHe']
+            grfluxes_Hep = myModel.grfuncs(params)['grfluxes_Hep']
+            grfluxes_HeHe = myModel.grfuncs(params)['grfluxes_HeHe']
         grfluxes = [np.copy(x) for x in grfluxes_pp]
 
         # get e-bremss. fluxes
@@ -540,7 +591,11 @@ def range_plot(flag, cutoff=0):
 
         # enhance p-p GR fluxes & add e-bremss data
         for i in range(len(myModel.GRdata)):
-            grfluxes[i] = enh_f[i]*grfluxes_pp[i] + ebrfluxes[i]
+            if (myModel.modflags['ppmodel']==0 or myModel.modflags['ppmodel']==1):
+                grfluxes[i] = enh1_f[i]*grfluxes_pp[i] + ebrfluxes[i]
+            if (myModel.modflags['ppmodel']==2):
+                # CR chemical composition has been already take into account in grfluxes_**. Here ISM He abundance is taken into account
+                grfluxes[i] = enh2_f[i]*grfluxes_pp[i] + grfluxes_pHe[i]*enf.abund_rats_dict['he'] + grfluxes_Hep[i] + grfluxes_HeHe[i]*enf.abund_rats_dict['he'] + ebrfluxes[i]
 
             # add scaling parameter if gr scaling
             if myModel.modflags['grscaling']:
