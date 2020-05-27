@@ -406,8 +406,8 @@ class Model():
         # empty flux array (same shame as in GRdata)
         self.empty_fluxes=[np.zeros(self.GREs[i].shape) for i in range(len(self.GREs))]
         
-        # get enhancement factor at GR energies
-        def enhfunc(theta):
+        # get enhancement factors (all/pp and all_other_than_He/pp) at GR energies
+        def enhfuncs(theta):
             
             CRfluxes_theta = copy.deepcopy(self.CRfluxes)
             CRinds_theta = copy.deepcopy(self.CRinds)
@@ -487,20 +487,53 @@ class Model():
                         CRfluxes_theta[key] = fluxes
                         CRinds_theta[key] = weighted_sum/flux_sum
             
-            enh_fs = [np.copy(x) for x in self.empty_fluxes]
-            enh_fs = enf.enh(self.modflags['enh'], self.modflags['enhext'], enh_fs, self.GREs, CRfluxes_theta, CRinds_theta)
+            enh1_fs = [np.copy(x) for x in self.empty_fluxes]
+            enh1_fs = enf.enh1(self.modflags['enh'], self.modflags['enhext'], enh1_fs, self.GREs, CRfluxes_theta, CRinds_theta)
+            enh2_fs = [np.copy(x) for x in self.empty_fluxes]
+            enh2_fs = enf.enh2(self.modflags['enh'], self.modflags['enhext'], enh2_fs, self.GREs, CRfluxes_theta, CRinds_theta)
             
             # print for diagnostics
             # print ("### CRfluxes_theta=", CRfluxes_theta)
             # print ("### CRinds_theta=", CRinds_theta)
             # print ("### self.GREs=", self.GREs)
             # print ("### enh_fs=", enh_fs)
-            return enh_fs
+            return {'enh1':enh1_fs, 'enh2':enh2_fs}
+            # return enh_fs
             
-        # get GR fluxes at log10 of GR energies
+        # get GR fluxes due to pp interaction at log10 of GR energies
         # can also consider some modflag options here
         self.GRlogEgs=[np.log10(self.GREs[i]) for i in range(len(self.GREs))]
         def grfunc_pp(theta):
+            LIS_params_pp = list(theta[self.ncrparams + int(self.modflags['grscaling']) + self.nLISparams*self.LISdict['h']:\
+                                       self.ncrparams + int(self.modflags['grscaling']) + self.nLISparams*(self.LISdict['h']+1)])
+            
+            # add universal delta parameter
+            if self.modflags['pl']=='br' and self.modflags['one_d']:
+                if self.modflags['fixd']==None:
+                    LIS_params_pp+=[theta[-1]]
+                else:
+                    LIS_params_pp+=[self.modflags['fixd']]
+                
+            # add common alpha2(ME), pc_br1(H-M), delta1(H-M)
+            if self.modflags['pl']=='dbr':
+                LIS_params_pp+=[theta[-3], theta[-2], theta[-1]]
+
+            # add common alpha2(ME), rig_br1(H-M), delta1(H-M)
+            if self.modflags['pl']=='dbr2':
+                LIS_params_pp+=[theta[-3], theta[-2], theta[-1]]
+
+            if self.modflags['ppmodel']==0:
+                return grf.get_fluxes_pp(LIS_params_pp, self.GRlogEgs, self.crformula_IS)
+            elif self.modflags['ppmodel']==1:
+                return grf.get_fluxes_pp_hybrid(LIS_params_pp, self.GRlogEgs, self.crformula_IS)
+            elif self.modflags['ppmodel']==2:
+                # If ppmodel=2, we will calculate gamma-ray fluxes for pp, pHe, Hep, and HeHe interactions. Here we obtain the flux for pp interactions.
+                return grf.get_fluxes_pp_hybrid(LIS_params_pp, self.GRlogEgs, self.crformula_IS)
+        
+        # get GR fluxes due to pp, pHe, Hep, and HeHe interactions at log10 of GR energies
+        # can also consider some modflag options here
+        self.GRlogEgs=[np.log10(self.GREs[i]) for i in range(len(self.GREs))]
+        def grfuncs(theta):
             LIS_params_pp = list(theta[self.ncrparams + int(self.modflags['grscaling']) + self.nLISparams*self.LISdict['h']:\
                                        self.ncrparams + int(self.modflags['grscaling']) + self.nLISparams*(self.LISdict['h']+1)])
             LIS_params_pHe = list(theta[self.ncrparams + int(self.modflags['grscaling']) + self.nLISparams*self.LISdict['h']:\
@@ -537,13 +570,13 @@ class Model():
                 LIS_params_Hep+=[theta[-3], theta[-2], theta[-1]]
                 LIS_params_HeHe+=[theta[-3], theta[-2], theta[-1]]
 
-            if self.modflags['ppmodel']==0:
-                return grf.get_fluxes_pp(LIS_params_pp, self.GRlogEgs, self.crformula_IS)
-            elif self.modflags['ppmodel']==1:
-                return grf.get_fluxes_pp_hybrid(LIS_params_pp, self.GRlogEgs, self.crformula_IS)
-            elif self.modflags['ppmodel']==2:
+            # return fluxes only when ppmodel==2
+            if self.modflags['ppmodel']==2:
                 # If ppmodel=2, we will calculate gamma-ray fluxes for pp, pHe, Hep, and HeHe interactions. Here we obtain the flux for pp interactions.
-                # return grf.get_fluxes_pp_hybrid(LIS_params_pp, self.GRlogEgs, self.crformula_IS)
+                return {'grfluxes_pp': grf.get_fluxes_pp_hybrid(LIS_params_pp, self.GRlogEgs, self.crformula_IS), \
+                        'grfluxes_pHe': grf.get_fluxes_pHe_hybrid(LIS_params_pHe, self.GRlogEgs, self.crformula_IS), \
+                        'grfluxes_Hep': grf.get_fluxes_Hep_hybrid(LIS_params_Hep, self.GRlogEgs, self.crformula_IS), \
+                        'grfluxes_HeHe': grf.get_fluxes_HeHe_hybrid(LIS_params_HeHe, self.GRlogEgs, self.crformula_IS)}
                 #
                 # for test. cross section of p-He interaction is ~4 times larger than that of pp. 
                 # So this returns similar gamma-ray flux to that for "ppmodel=1"
@@ -555,7 +588,7 @@ class Model():
                 #
                 # for test. cross section of He-He interaction is ~15 times larger than that of pp, and the He flux is ~18 times smaller than that of p (at the same Ekin/N).
                 # So this returns similar gamma-ray flux to that of "ppmodel=1"
-                return [1.25*v for v in grf.get_fluxes_HeHe_hybrid(LIS_params_HeHe, self.GRlogEgs, self.crformula_IS)]
+                # return [1.25*v for v in grf.get_fluxes_HeHe_hybrid(LIS_params_HeHe, self.GRlogEgs, self.crformula_IS)]
         
         # retrieve e-bremss values at desired energies
         def ebrfunc():
@@ -606,21 +639,63 @@ class Model():
             if self.nGRpoints!=0:
                 
                 # get enhancement factors
-                enh_f = enhfunc(theta)
+                enh1_f = enhfuncs(theta)['enh1']
+                enh2_f = enhfuncs(theta)['enh2']
+                # enh_f = enhfunc(theta)
 
-                # get p-p GR fluxes at gamma data's energies
-                gr_fluxes = grfunc_pp(theta)
-                
-                # make sure it's a list of finite numbers
+                # make sure they are list of finite numbers
                 try:
-                    for i in range(len(gr_fluxes)):
-                        if not (np.all(np.isfinite(gr_fluxes[i])) and np.all(np.isfinite(enh_f[i]))):
+                    for i in range(len(enh1_f)):
+                        if not (np.all(np.isfinite(enh1_f[i]))):
+                            return -np.inf
+                except: return -np.inf
+                try:
+                    for i in range(len(enh2_f)):
+                        if not (np.all(np.isfinite(enh2_f[i]))):
                             return -np.inf
                 except: return -np.inf
 
+                # get p-p GR fluxes at gamma data's energies
+                if (self.modflags['ppmodel']==0 or self.modflags['ppmodel']==1):
+                    gr_fluxes_pp = grfunc_pp(theta)
+#                    gr_fluxes = grfunc_pp(theta)
+                if (self.modflags['ppmodel']==2):
+                    gr_fluxes_pp = grfuncs(theta)['grfluxes_pp']
+                    gr_fluxes_pHe = grfuncs(theta)['grfluxes_pHe']
+                    gr_fluxes_Hep = grfuncs(theta)['grfluxes_Hep']
+                    gr_fluxes_HeHe = grfuncs(theta)['grfluxes_HeHe']
+                
+                # make sure they are list of finite numbers
+                try:
+                    for i in range(len(gr_fluxes_pp)):
+                        if not (np.all(np.isfinite(gr_fluxes_pp[i]))):
+                            return -np.inf
+                except: return -np.inf
+                if (self.modflags['ppmodel']==2):                
+                    try:
+                        for i in range(len(gr_fluxes_pHe)):
+                            if not (np.all(np.isfinite(gr_fluxes_pHe[i]))):
+                                return -np.inf
+                    except: return -np.inf
+                    try:
+                        for i in range(len(gr_fluxes_Hep)):
+                            if not (np.all(np.isfinite(gr_fluxes_Hep[i]))):
+                                return -np.inf
+                    except: return -np.inf
+                    try:
+                        for i in range(len(gr_fluxes_HeHe)):
+                            if not (np.all(np.isfinite(gr_fluxes_HeHe[i]))):
+                                return -np.inf
+                    except: return -np.inf
+
                 # enhance p-p GR fluxes & add e-bremss data
+                gr_fluxes = copy.deepcopy(gr_fluxes_pp)
+#                gr_fluxes = [np.zeros(len(gr_fluxes_pp))] # a bit faster
                 for i in range(len(self.GRdata)):
-                    gr_fluxes[i] = enh_f[i]*gr_fluxes[i] + ebr_fluxes[i]
+                    if (self.modflags['ppmodel']==0 or self.modflags['ppmodel']==1):
+                        gr_fluxes[i] = enh1_f[i]*gr_fluxes_pp[i] + ebr_fluxes[i]
+                    elif (self.modflags['ppmodel']==2):
+                        gr_fluxes[i] = enh2_f[i]*gr_fluxes_pp[i] + gr_fluxes_pHe[i]*enf.abund_rats_dict['he'] + gr_fluxes_Hep[i] + gr_fluxes_HeHe[i]*enf.abund_rats_dict['he'] + ebr_fluxes[i]
                     
                     # add scaling parameter if gr scaling
                     if self.modflags['grscaling']:
@@ -961,7 +1036,9 @@ class Model():
         self.crfunc=crfunc
         self.crfunc_IS=crfunc_IS
         self.grfunc_pp=grfunc_pp
-        self.enhfunc=enhfunc
+        self.grfuncs=grfuncs
+        self.enhfuncs=enhfuncs
+        # self.enhfunc=enhfunc
         self.ebrfunc=ebrfunc
         return
         
@@ -997,8 +1074,8 @@ class Model():
 
         # add gr scaling factor
         if self.modflags['grscaling']:
-            startpos += [1.] # nominal value for Kamae +06 model
-            # startpos += [1.25] # nominal value for a hybrid model (Kamae +06 and AAgrag)
+            # startpos += [1.] # nominal value for Kamae +06 model
+            startpos += [1.25] # nominal value for a hybrid model (Kamae +06 and AAgrag)
 
         # add LIS parameters
         for i in range(self.LISorder.shape[0]):
