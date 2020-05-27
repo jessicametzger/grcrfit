@@ -60,10 +60,13 @@ for j in range(mults.shape[1]):
 
 # construct abundance ratios
 abund_rats=np.array([1,0.096,1.38e-3,2.11e-4,3.25e-5])
+# also construct ratios as a dictionary
+abund_rats_dict = {'h': 1.0, 'he': 0.096, 'cno': 1.38e-3, 'mgsi': 2.11e-4, 'fe': 3.25e-5}
 
 # interpolate mult. table for enh factors
 # sum along interaction axis
 
+## standard enhancement factor (i.e., all/pp) as a function of gamma-ray energy
 # enhtype is 0 (QGSjet) or 1 (LHC)
 # ext = True (explicit calculation assuing a single PL with index in highE) or False (extrapolate below 10 GeV) for enhancement factor calculation
 # enh_fs = zeros array of the right shape for enhancement factors (same as GRdata, corresponding energy arrays)
@@ -71,7 +74,7 @@ abund_rats=np.array([1,0.096,1.38e-3,2.11e-4,3.25e-5])
 # CRfluxes is dict of 5 lists (length=len(GRdata)) of flux arrs at GRdata energies
 # CRinds is dict of 5 alphas (positive)
 # CRfluxes/inds keys are same as enh_els
-def enh(enhtype, ext, enh_fs, GREs, CRfluxes, CRinds):
+def enh1(enhtype, ext, enh_fs, GREs, CRfluxes, CRinds):
     intplr=interps[enhtype]
     
     for k in range(len(GREs)):
@@ -107,6 +110,45 @@ def enh(enhtype, ext, enh_fs, GREs, CRfluxes, CRinds):
                 
                 # fill in extrapolated values
                 enh_fs[k][0:first_ind] = enh_fs[k][first_ind]
+    
+    return enh_fs
+
+## enhancement factor in which alpha/He not included (i.e., all_other_than_He/pp)
+def enh2(enhtype, ext, enh_fs, GREs, CRfluxes, CRinds):
+    intplr=interps[enhtype]
+    
+    for k in range(len(GREs)):
+        E=np.copy(GREs[k])
+        logE = np.log10(E)
+        
+        # assume a constant enhancement factor below the 10 GeV (10e3 MeV)
+        if not ext:
+            first_ind = np.where(logE >= 4)[0][0]
+            logE = logE[first_ind:]
+        else:
+            first_ind = 0
+        
+        for i in range(len(enh_els_ls)): #loop over projectile species
+            current_proj_flux=np.copy(np.array(CRfluxes[enh_els_ls[i]][k]))[first_ind:]
+            
+            for j in range(2): #loop over target species
+                current_intplr = intplr[j*5 + i]
+                mult_f = current_intplr(logE, CRinds[enh_els_ls[i]])
+                
+                if i==0 and j==0:
+                    mult_ratio = np.repeat(1.,logE.shape[0])
+                    flux_ratio = np.repeat(1.,logE.shape[0])
+                    mult_f_pp = mult_f
+                    CR_flux_p = current_proj_flux
+                else:
+                    mult_ratio = mult_f/mult_f_pp
+                    flux_ratio = current_proj_flux/CR_flux_p
+                
+                # add contribution of current projectile-target interaction and fill in extrapolated values, if alpha/He not involved
+                if not ((i==1 and j==0) or (i==0 and j==1) or (i==1 and j==1)):
+                    contribution = abund_rats[j]*mult_ratio*flux_ratio
+                    enh_fs[k][first_ind:] += contribution
+                    enh_fs[k][0:first_ind] = enh_fs[k][first_ind]
     
     return enh_fs
 
