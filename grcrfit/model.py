@@ -23,19 +23,20 @@ from . import enhs as enf
 #    or with momentum and velocity, each getting its own index ('b')
 # - 'enh' = 0 or 1, determines which enhancement framework to use out of the two given
 #    in Kachelriess +14 (0 for QGS and 1 for LHC)
-# - 'ppmodel' = 0 or 1, determined which pp-interaction model (Kamae +06 or a hybrid (Kamae +06 and AAfrag)) to use
+# - 'ppmodel' = 0 or 1 or 2, determined which pp-interaction model (0: Kamae +06, 1: hybrid (Kamae +06 and AAfrag), 2: hybrid and pHe, Hep, HeHe in addition to pp)
 # - 'weights' = 3-item list giving relative weights of CR, Voyager, and GR log-like.
 #    Note that priors aren't weighted, so may need to tune weight normalization to get
 #    correct relative weighting between likelihood & prior. If weights==None, no weighting
-# - 'priors' = 0 or 1, for gaussian (0) or flat (1) priors on phis
-# - 'vphi_err': Voyager phi is limeted from the initial value within +/- of this value in priors
+# - 'priors' = 0 or 1. If 0, gaussian priors on phis with sigma=20.0 (hard coded). If 1, no priors on phi. In either case, initial values taken from CR data file.
+# - 'vphi_err': Voyager phi error (1sigma) can be set and used if 'priors'=0.
 # - 'cr/grscaling' = True or False, whether or not to scale all CR experiments  except AMS-02 
 #    or all GR experiments to correct for systematic errors
 # - 'enhext' = True or False. If True we calculate the enhancement factor explicitly assuming single PL with index of highE. If False we extrapolate below 10 GeV.
 # - 'priorlimits' = True or False, whether or not to constrain the parameter in specified ranges
 # - 'fixd': If "None" the delta is treated as a free parameter. If some number is given, deita is fixed to that value.
 # - 'one_d' = True or False, whether we use single value or multiple values for delta (sharpness of the break)
-# - 'fix_vphi': If "None" the voyager phi is treated as a free parameter. If some number is given, it is virtually fixed to that value.
+# - 'fix_vphi': If "None" the voyager phi is treated as a free parameter ('priors' and 'vphi_err' work).
+# -  If some number is given, it is virtually fixed to that value. ('priors' and 'vphi_err' are ignored for Voyager)
 
 class Model():
     
@@ -73,13 +74,10 @@ class Model():
         self.VRinds=[]
         
         # voyager phi and error for (virtually) fixing
-        self.vphi0 = 1.0 # not used if 'fix_vphi'==None
-        self.vphi_err0 = 0.01 # we want to limit vphi close to vphi0. not used if 'fix_vphi'==None 
+        self.vphi0 = 0.1 # not used if 'fix_vphi'==None. Not equal to 0, since fit does not work if we start with 0
+        self.vphi_err0 = 0.1 # we want to limit vphi close to vphi0. not used if 'fix_vphi'==None 
         if not self.modflags['fix_vphi']==None: # if voyager phis are fixed
             self.vphi0 = self.modflags['fix_vphi']
-            # make sure vphi0-vphi_err0 is positive
-            if (self.vphi0<self.vphi_err0):
-                self.vphi0 = self.vphi_err0
 
         elements = list(self.data.keys())
         elements.sort()
@@ -172,12 +170,13 @@ class Model():
                     # print ("## self.phis=", self.phis)
                     # print ("## self.phierrs=", self.phierrs)
         
-        # also create list of ref. scaling factors & errors (all 1, .1)
+        # also create list of ref. scaling factors & errors (all 1, 0.1)
         # corresponding with the list of phi's, for prior calculation.
         # Don't ignore AMS-02, scaling will be set to 1 anyways.
+        # (NB we keep scaleerrors for compatibility. Not used in prob calculation any more)
         if self.modflags['crscaling']:
             self.scales = np.repeat(1, self.phis.shape[0])
-            self.scaleerrs = np.repeat(.1, self.phis.shape[0])
+            self.scaleerrs = np.repeat(0.1, self.phis.shape[0])
         
         
         # determine order of the elements' LIS parameters
@@ -603,6 +602,8 @@ class Model():
         def lnlike(theta):
             
             # set ams02 scaling to 1
+            # (keep this for compatibility. NB it does not work since the param of walker not affected.
+            # instead, we limit AMSscaling in lnprior)
             if self.modflags['crscaling']:
                 theta=np.array(theta)
                 theta[2*np.array(self.AMS02_inds) + 1] = 1.
@@ -725,17 +726,19 @@ class Model():
         # force spectral indices to be negative, normalizations to be positive
         if self.modflags['priors']==0:
             
-            def lp_phi(theta):
+            # we keep this for compatibility, but do not use in probability calculation.
+            # (lnprior now returns 0, not lp_phi)
+            def lp_phi(theta): 
                 lp=0
                 
                 # priors on phis; must account for index interlacing if crscaling
                 lp += -.5*np.sum(((theta[0:self.ncrparams:(int(self.modflags['crscaling'])+1)] - self.phis)/self.phierrs)**2.)
                     
-                #scaling factors
+                # priors on scaling factors.
                 if self.modflags['crscaling']:
                     lp += -.5*np.sum(((theta[1:self.ncrparams:2] - self.scales)/self.scaleerrs)**2.)
                 if self.modflags['grscaling']:
-                    lp += -.5*np.sum(((theta[self.ncrparams] - 1)/0.05)**2.)
+                    lp += -.5*np.sum(((theta[self.ncrparams] - 1)/0.2)**2.) # hard coded, allow larger deviation (from 1) than cr_scale
                     
                 return lp
             
@@ -761,6 +764,21 @@ class Model():
             # print ("## vphi0/vphi_err0=", self.vphi0, self.vphi_err0)
             # print ("## CRexps=", self.CRexps, len(self.CRexps))
             # print ("## CRexps_phi=", self.CRexps_phi, len(self.CRexps_phi))
+            ### set AMS scaling to 1. limit within CRscale 1+/-0.3
+            if self.modflags['crscaling']:
+                theta_slice2 = theta[1:self.ncrparams:(int(self.modflags['crscaling'])+1)]
+                for kk in range(len(theta_slice2)):
+                    CRscale = theta_slice2[kk]
+                    if (CRscale<0.7 or CRscale>1.3):
+                        return -np.inf
+                AMSscale = theta_slice2[self.AMS02_inds[0]]
+                if AMSscale<=1-0.005 or AMSscale>=1+0.005:
+                    return -np.inf
+            ### limit GR scaling from 0.5 to 2.0
+            if self.modflags['grscaling']:
+                GRscale = theta[self.ncrparams]
+                if (GRscale<0.5 or GRscale>2.0):
+                    return -np.inf
             ### see if the parameter is voyager phi
             if not self.modflags['fix_vphi']==None: # if voyager phis are fixed
                 for i in range(len(self.CRexps_phi)):
@@ -769,12 +787,12 @@ class Model():
                         # print ("# vphi=", vphi)
                         if vphi<=self.vphi0-self.vphi_err0 or vphi>self.vphi0+self.vphi_err0:
                             return -np.inf
-            # positive phis
-            if np.any(theta[0:self.ncrparams:(int(self.modflags['crscaling'])+1)] <= 0):
-                return -np.inf
+            ### positive phis # now allow negative values
+            #if np.any(theta[0:self.ncrparams:(int(self.modflags['crscaling'])+1)] <= 0):
+            #    return -np.inf
             
+
             for i in range(self.nels):
-                
                 # positive (high-energy, momentum) index
                 if theta[self.ncrparams + int(self.modflags['grscaling']) + i*self.nLISparams + 1] < 0:
                     return -np.inf
@@ -1063,9 +1081,9 @@ class Model():
             if 'voyager' in self.CRexps[self.match_inds[i][0]] and '2012' in self.CRexps[self.match_inds[i][0]]:
                 if self.modflags['fix_vphi']==None: # if voyager phis are treated as free parameter
                     if self.modflags['crscaling']:
-                        startpos[2*i] = 10.
+                        startpos[2*i] = 0.
                     else:
-                        startpos[i] = 10.
+                        startpos[i] = 0.
                 else: # if voyager phi is fixed to a specific common value
                     if self.modflags['crscaling']:
                         startpos[2*i] = self.vphi0
@@ -1074,8 +1092,8 @@ class Model():
 
         # add gr scaling factor
         if self.modflags['grscaling']:
-            # startpos += [1.] # nominal value for Kamae +06 model
-            startpos += [1.25] # nominal value for a hybrid model (Kamae +06 and AAgrag)
+            startpos += [1.]
+            # startpos += [1.25] # nominal value for a hybrid model (Kamae +06 and AAgrag)
 
         # add LIS parameters
         for i in range(self.LISorder.shape[0]):
