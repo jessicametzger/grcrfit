@@ -67,7 +67,7 @@ def get_metadata(flag,runID=0):
     try: test=metadata['modflags']['priorlimits']
     except KeyError: metadata['modflags']['priorlimits']=False
     try: test=metadata['modflags']['vphi_err']
-    except KeyError: metadata['modflags']['vphi_err'] = 100.
+    except KeyError: metadata['modflags']['vphi_err'] = 100.0
     try: test=metadata['modflags']['fixd']
     except KeyError: metadata['modflags']['fixd']=None
     try: test=metadata['modflags']['one_d']
@@ -84,7 +84,7 @@ def get_metadata(flag,runID=0):
 
 # get & format data from fdict, into "standard" format for Model class argument
 # each element must have its own file!
-def get_data(fdict, vphi_err = 100.):
+def get_data(fdict, vphi_err = 100.0):
     
     dtypes = list(fdict.keys())
     dtypes.sort()
@@ -171,10 +171,10 @@ def get_data(fdict, vphi_err = 100.):
 
                 date = entry[0,-1]
                 phi = entry[0,-3]
-                phi_err = 26.
+                phi_err = 20.
                 dist = entry[0,-2]
 
-                # set Voyager phi to 0+-[provided error; default 100]
+                # set Voyager phi to 0 +/- [provided error]
                 if 'voyager1' in exp.lower() and '2012' in exp:
                     phi = 0.
                     phi_err = vphi_err
@@ -200,8 +200,8 @@ class Fitter:
     
     # Initialize the Fitter object
     def __init__(self, data, nsteps=5000, nwalkers=None, PT=True, ntemps=10, processes=None, rerun=False, flag=None,\
-                 modflags = {'pl': 's', 'ppmodel': 0, 'enh': 0, 'weights': None, 'priors': 0, 'crscaling': False,
-                             'grscaling': False, 'enhext': False, 'priorlimits': False, 'vphi_err': 100.,
+                 modflags = {'pl': 's', 'ppmodel': 0, 'enh': 0, 'weights': None, 'priors': 0, 'crscaling': False, \
+                             'grscaling': False, 'enhext': False, 'priorlimits': False, 'vphi_err': 100.0, \
                              'fixd': None, 'one_d': True, 'fix_vphi': None}):
         
         self.data=data
@@ -234,7 +234,7 @@ class Fitter:
         try: test=self.modflags['priorlimits']
         except KeyError: self.modflags['priorlimits'] = False
         try: test=self.modflags['vphi_err']
-        except KeyError: self.modflags['vphi_err'] = 100.
+        except KeyError: self.modflags['vphi_err'] = 100.0
         try: test=self.modflags['fixd']
         except KeyError: self.modflags['fixd'] = None
         try: test=self.modflags['one_d']
@@ -257,8 +257,9 @@ class Fitter:
             if self.nwalkers==None or self.nwalkers < (self.ndim + 1)*2 or self.nwalkers%2 != 0:
                 self.nwalkers = max((self.ndim + 1)*2,100)
                 
-            self.startpos=np.array([[self.startpos[i]*(1 + np.random.normal(scale=1e-4)) for i in range(self.startpos.shape[0])]\
-                                    for x in range(self.nwalkers)])
+            #self.startpos=np.array([[self.startpos[i]*(1 + np.random.normal(scale=1e-4)) for i in range(self.startpos.shape[0])]\
+            self.startpos=np.array([[self.startpos[i]*(1 + np.random.normal(scale=0.001)) for i in range(self.startpos.shape[0])]\
+                                    for x in range(self.nwalkers)]) # not able to set scale=0.1 (min/max range not wide for some params.)
             
         else:
             if flag==None:
@@ -326,7 +327,7 @@ class Run:
     # Initialize Run object
     def __init__(self, flag, fdict, rerun=False, nwalkers=None,
                  modflags = {'pl': 's', 'ppmodel': 0, 'enh': 0, 'weights': None, 'priors': 0, 'crscaling': False,
-                             'grscaling': False, 'enhext': False, 'priorlimits': False, 'vphi_err': 100.,
+                             'grscaling': False, 'enhext': False, 'priorlimits': False, 'vphi_err': 100.0,
                               'fixd': None, 'one_d': True, 'fix_vphi': None}):
         
         self.metadata={}
@@ -359,7 +360,7 @@ class Run:
             self.metadata['modflags'] = modflags
         
         try: test=self.metadata['modflags']['vphi_err']
-        except: self.metadata['modflags']['vphi_err']=100.
+        except: self.metadata['modflags']['vphi_err'] = 100.0
         
         self.data = get_data(self.metadata['fdict'], vphi_err = self.metadata['modflags']['vphi_err'])
 
