@@ -84,7 +84,9 @@ def get_metadata(flag,runID=0):
 
 # get & format data from fdict, into "standard" format for Model class argument
 # each element must have its own file!
-def get_data(fdict, vphi_err = 100.0):
+# phi taken from data file and will be used as a start position and in prior calculation (ln_phi in model.py) 
+# phi_err set to 100.0 (Voyager) and 0.15*phi (others, user can give arbitrary value). They will be used in prior calculation (see ln_phi in model.py)
+def get_data(fdict, phi_err_ratio = 0.15, vphi_err = 100.0):
     
     dtypes = list(fdict.keys())
     dtypes.sort()
@@ -171,8 +173,8 @@ def get_data(fdict, vphi_err = 100.0):
 
                 date = entry[0,-1]
                 phi = entry[0,-3]
-                phi_err = 20.
                 dist = entry[0,-2]
+                phi_err = phi*phi_err_ratio
 
                 # set Voyager phi to 0 +/- [provided error]
                 if 'voyager1' in exp.lower() and '2012' in exp:
@@ -250,7 +252,7 @@ class Fitter:
         self.myModel = Model(self.modflags, self.data)
         
         if not self.rerun:
-            self.startpos = self.myModel.get_startpos()
+            self.startpos, self.startpos_err = self.myModel.get_startpos()
             self.ndim = self.startpos.shape[0]
             
             # figure out how many walkers
@@ -258,8 +260,10 @@ class Fitter:
                 self.nwalkers = max((self.ndim + 1)*2,100)
                 
             #self.startpos=np.array([[self.startpos[i]*(1 + np.random.normal(scale=1e-4)) for i in range(self.startpos.shape[0])]\
-            self.startpos=np.array([[self.startpos[i]*(1 + np.random.normal(scale=0.001)) for i in range(self.startpos.shape[0])]\
-                                    for x in range(self.nwalkers)]) # not able to set scale=0.1 (min/max range not wide for some params.)
+            #self.startpos=np.array([[self.startpos[i]*(1 + np.random.normal(scale=0.001)) for i in range(self.startpos.shape[0])]\
+            # Now error of startposition is given for each param. If err=0, that param remains constant
+            self.startpos=np.array([[self.startpos[i] + np.random.normal(scale=abs(self.startpos_err[i])) for i in range(self.startpos.shape[0])]\
+                                    for x in range(self.nwalkers)])
             
         else:
             if flag==None:
