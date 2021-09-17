@@ -27,16 +27,19 @@ from . import enhs as enf
 # - 'weights' = 3-item list giving relative weights of CR, Voyager, and GR log-like.
 #    Note that priors aren't weighted, so may need to tune weight normalization to get
 #    correct relative weighting between likelihood & prior. If weights==None, no weighting
-# - 'priors' = 0 or 1. If 0, gaussian priors on phis with sigma=20.0 (hard coded). If 1, no priors on phi. In either case, initial values taken from CR data file.
+# - 'priors' = 0 or 1. If 0, gaussian priors on phis with sigma=0.15*phi (hard coded). If 1, no priors on phi. In either case, initial values taken from CR data file.
+#    If 'priors' = 0, gaussian priors on scaling is also assumed.
+#    (NB the effect on fit is minor, since the number of data points is large and hence data will dominate the fit.)
 # - 'vphi_err': Voyager phi error (1sigma) can be set and used if 'priors'=0.
 # - 'cr/grscaling' = True or False, whether or not to scale all CR experiments  except AMS-02 
 #    or all GR experiments to correct for systematic errors
+#   (We do NOT recommend 'crscaling'=True, since the fit does not converge well)
 # - 'enhext' = True or False. If True we calculate the enhancement factor explicitly assuming single PL with index of highE. If False we extrapolate below 10 GeV.
 # - 'priorlimits' = True or False, whether or not to constrain the parameter in specified ranges
 # - 'fixd': If "None" the delta is treated as a free parameter. If some number is given, deita is fixed to that value.
 # - 'one_d' = True or False, whether we use single value or multiple values for delta (sharpness of the break)
 # - 'fix_vphi': If "None" the voyager phi is treated as a free parameter ('priors' and 'vphi_err' work).
-# -  If some number is given, it is virtually fixed to that value. ('priors' and 'vphi_err' are ignored for Voyager)
+# -  If some number is given, it is virtually fixed to that value. ('vphi_err' is ignored)
 
 class Model():
     
@@ -74,7 +77,7 @@ class Model():
         self.VRinds=[]
         
         # voyager phi and error for (virtually) fixing
-        self.vphi0 = 0.1 # not used if 'fix_vphi'==None. Not equal to 0, since fit does not work if we start with 0
+        self.vphi0 = 0.1 # will be used if 'fix_vphi'==None.
         self.vphi_err0 = 0.1 # we want to limit vphi close to vphi0. not used if 'fix_vphi'==None 
         if not self.modflags['fix_vphi']==None: # if voyager phis are fixed
             self.vphi0 = self.modflags['fix_vphi']
@@ -150,7 +153,7 @@ class Model():
                 self.remove_inds+=duplicates[1:]
             
             # which CR data indices to assign the phi at this position in self.match_inds
-            self.match_inds += [duplicates]
+            self.match_inds+=[duplicates]
         
         # remove duplicates:
         self.phis = np.delete(self.phis, self.remove_inds)
@@ -170,13 +173,14 @@ class Model():
                     # print ("## self.phis=", self.phis)
                     # print ("## self.phierrs=", self.phierrs)
         
-        # also create list of ref. scaling factors & errors (all 1, 0.1)
+        # also create list of ref. scaling factors & errors (all 1, 0.03)
         # corresponding with the list of phi's, for prior calculation.
+        # (So proton and He share the common scaling for the same phi)
         # Don't ignore AMS-02, scaling will be set to 1 anyways.
-        # (NB we keep scaleerrors for compatibility. Not used in prob calculation any more)
+        # If 'crscaling'=True, they will be used in prior calculation (lp_phi). Also will be used as hard limit
         if self.modflags['crscaling']:
             self.scales = np.repeat(1, self.phis.shape[0])
-            self.scaleerrs = np.repeat(0.1, self.phis.shape[0])
+            self.scaleerrs = np.repeat(0.03, self.phis.shape[0])
         
         
         # determine order of the elements' LIS parameters
@@ -764,23 +768,33 @@ class Model():
             # print ("## vphi0/vphi_err0=", self.vphi0, self.vphi_err0)
             # print ("## CRexps=", self.CRexps, len(self.CRexps))
             # print ("## CRexps_phi=", self.CRexps_phi, len(self.CRexps_phi))
-            ### set AMS scaling to 1. limit within CRscale 1+/-0.3
+            ### limit phi so that the fit converge well
+            for kk in range(len(theta_slice)):
+                phi = theta_slice[kk]
+                phi0 = self.phis[kk]
+                err0 = self.phierrs[kk]
+                if (phi<phi0-err0 or phi>=phi0+err0):
+                    return -np.inf
+            ### limit CRscale so that the fit converge well. set AMS scaling to 1. limit within CRscale 1+/-0.3
             if self.modflags['crscaling']:
                 theta_slice2 = theta[1:self.ncrparams:(int(self.modflags['crscaling'])+1)]
                 for kk in range(len(theta_slice2)):
                     CRscale = theta_slice2[kk]
-                    if (CRscale<0.7 or CRscale>1.3):
+                    scale0 = self.scales[kk]
+                    err0 = self.scaleerrs[kk]
+                    if (CRscale<scale0-err0 or CRscale>scale0+err0):
                         return -np.inf
-                AMSscale = theta_slice2[self.AMS02_inds[0]]
-                if AMSscale<=1-0.005 or AMSscale>=1+0.005:
-                    return -np.inf
-            ### limit GR scaling from 0.5 to 2.0
+                ## set AMSscaling very close to 1. Not used anymore since it is now always to 1 (startpos=1.0 with 0 error)
+                #AMSscale = theta_slice2[self.AMS02_inds[0]]
+                #if AMSscale<=1-0.005 or AMSscale>=1+0.005:
+                #    return -np.inf
+            ### limit GR scaling from 0.5 to 2.0 so that the fit converge well
             if self.modflags['grscaling']:
                 GRscale = theta[self.ncrparams]
                 if (GRscale<0.5 or GRscale>2.0):
                     return -np.inf
             ### see if the parameter is voyager phi
-            if not self.modflags['fix_vphi']==None: # if voyager phis are fixed
+            if not self.modflags['fix_vphi']==None: # if voyager phis are fixed (some variation allowed for plotting)
                 for i in range(len(self.CRexps_phi)):
                     if 'voyager1' in self.CRexps_phi[i]:
                         vphi = theta_slice[i]
@@ -905,19 +919,20 @@ class Model():
 
 
                 # force params to be within limits from Strong 2015 for broken power-law model.
-#                if self.modflags['priorlimits'] and self.modflags['pl']=='br' and self.LISorder[i].lower()=='h':
+                #if self.modflags['priorlimits'] and self.modflags['pl']=='br' and self.LISorder[i].lower()=='h':
                 if self.modflags['priorlimits'] and self.modflags['pl']=='br':
                     
                     # limit for normalization, only for hydrogen. 
                     # c/4pi n_ref,100GeV/n between ~1e-9 and ~20e-9 (# /cm^2 /s /sr /MeV). This translates into 5-100 at 10 GeV/n in (#/s/m2/sr/GeV) for index=2.7.
+                    # => 22.5 to 27.5 (close to best-fit value by Honda+04)
                     if (self.LISorder[i].lower()=='h'):
                         norm = theta[self.ncrparams + int(self.modflags['grscaling']) + i*self.nLISparams]
-                        if norm < 5 or norm  > 100:
+                        if norm < 22.5 or norm  > 27.5:
                             return -np.inf
                     
-                    # alpha1 between 3.5 and 2.6
+                    # alpha1 between 3.5 and 2.6 => 2.7 to 3.0 (close to best-fit value by Honda+04)
                     alpha1 = theta[self.ncrparams + int(self.modflags['grscaling']) + i*self.nLISparams + 1] 
-                    if alpha1 < 2.6 or alpha1> 3.5:
+                    if alpha1 < 2.7 or alpha1> 3.0:
                         return -np.inf
                     
                     # alpha2 between 2.7 and 2.2
@@ -954,14 +969,15 @@ class Model():
                     
                     # limit for normalization, only for hydrogen. 
                     # c/4pi n_ref,100GeV/n between ~1e-9 and ~20e-9 (# /cm^2 /s /sr /MeV). This translates into 5-100 at 10 GeV/n in (#/s/m2/sr/GeV) for index=2.7.
+                    # => 22.5 to 27.5 (close to best-fit value by Honda+04)
                     if (self.LISorder[i].lower()=='h'):
                         norm = theta[self.ncrparams + int(self.modflags['grscaling']) + i*self.nLISparams]
-                        if norm < 5 or norm  > 100:
+                        if norm < 22.5 or norm  > 27.5:
                             return -np.inf
                     
-                    # alpha1(HE) between 3.5 and 2.6
+                    # alpha1(HE) between 3.5 and 2.6 => 2.7 to 3.0 (close to best-fit value by Honda+04)
                     alpha1 = theta[self.ncrparams + int(self.modflags['grscaling']) + i*self.nLISparams + 1] 
-                    if alpha1 < 2.6 or alpha1> 3.5:
+                    if alpha1 < 2.7 or alpha1> 3.0:
                         return -np.inf
                     
                     # alpha2(ME) between 2.7 and 2.2
@@ -997,14 +1013,15 @@ class Model():
                     
                     # limit for normalization, only for hydrogen. 
                     # c/4pi n_ref,100GeV/n between ~1e-9 and ~20e-9 (# /cm^2 /s /sr /MeV). This translates into 5-100 at 10 GeV/n in (#/s/m2/sr/GeV) for index=2.7.
+                    # => 22.5 to 27.5 (close to best-fit value by Honda+04)
                     if (self.LISorder[i].lower()=='h'):
                         norm = theta[self.ncrparams + int(self.modflags['grscaling']) + i*self.nLISparams]
-                        if norm < 5 or norm  > 100:
+                        if norm < 22.5 or norm  > 27.5:
                             return -np.inf
                     
-                    # alpha1(HE) between 3.5 and 2.6
+                    # alpha1(HE) between 3.5 and 2.6 => 2.7 to 3.0 (close to best-fit value by Honda+04)
                     alpha1 = theta[self.ncrparams + int(self.modflags['grscaling']) + i*self.nLISparams + 1] 
-                    if alpha1 < 2.6 or alpha1> 3.5:
+                    if alpha1 < 2.7 or alpha1> 3.0:
                         return -np.inf
                     
                     # alpha2(ME) between 2.7 and 2.2
@@ -1065,76 +1082,100 @@ class Model():
     def get_startpos(self):
         
         # add phis & scaling parameters, interlaced
+        NormScale = 0.001 # fractional variation, equivalent to 1+np.random.normal(scale=0.001)
         if self.modflags['crscaling']:
             
             startpos = np.empty((self.phis.size + self.scales.size,), dtype=self.phis.dtype)
+            startpos_err = np.empty((self.phis.size + self.scales.size,), dtype=self.phis.dtype)
             startpos[0::2] = self.phis
             startpos[1::2] = self.scales
+            startpos_err[0::2] = self.phis*NormScale
+            startpos_err[1::2] = self.scales*NormScale
             
             startpos = list(startpos)
+            startpos_err = list(startpos_err)
             
         else: #or just phis if no scaling
             startpos=list(self.phis)
+            startpos_err=list(self.phis*NormScale)
         
-        # prevent Voyager phis from starting at very small region around 0
+        # Voyager phi may be set to 0, so we give absolute value for variation (if fractional variation is given, the value does not change during the fit)
         for i in range(self.nphis):
             if 'voyager' in self.CRexps[self.match_inds[i][0]] and '2012' in self.CRexps[self.match_inds[i][0]]:
                 if self.modflags['fix_vphi']==None: # if voyager phis are treated as free parameter
                     if self.modflags['crscaling']:
                         startpos[2*i] = 0.
+                        startpos_err[2*i] = 0.001 # absolute value
                     else:
                         startpos[i] = 0.
+                        startpos_err[i] = 0.001 # absolute value
                 else: # if voyager phi is fixed to a specific common value
                     if self.modflags['crscaling']:
                         startpos[2*i] = self.vphi0
+                        startpos_err[2*i] = 0.001 # absolute value (lnprior will virtually fix the param)
                     else:
                         startpos[i] = self.vphi0
+                        startpos_err[i] = 0.001 # absolute value (lnpriro will virtually fix the param)
 
         # add gr scaling factor
         if self.modflags['grscaling']:
             startpos += [1.]
+            startpos_err += [1.*NormScale]
             # startpos += [1.25] # nominal value for a hybrid model (Kamae +06 and AAgrag)
 
         # add LIS parameters
         for i in range(self.LISorder.shape[0]):
-            startpos+=ph.LIS_DICT[self.LISorder[i]] #initialize at former best-fit LIS norm, index
+            startpos += ph.LIS_DICT[self.LISorder[i]] #initialize at former best-fit LIS norm, index
+            v = ph.LIS_DICT[self.LISorder[i]]
+            for k in range(len(v)):
+                startpos_err += [v[k]*NormScale]
 
             if self.modflags['pl']=='b':                
                 # add ~best-fit value from previous fit
-                startpos+=[2.5]
+                startpos += [2.5]
+                startpos_err += [2.5*NormScale]
                 
             elif self.modflags['pl']=='br':                
                 # add ~best-fit proton values from Strong 2015 (ICRC)
                 ## old code (for reference) where E_br was used instaed of pc_br
                 ## startpos+=[2.37, ph.p_to_E(5870./ph.C_SI, 1)]
-                startpos+=[2.37, 5870]
+                startpos += [2.37, 5870]
+                startpos_err += [2.37*NormScale, 5870*NormScale]
                 # add delta if each experiment gets their own
                 if not self.modflags['one_d']:
-                    startpos+=[0.5]
+                    startpos += [0.5]
+                    startpos_err += [0.5*NormScale]
 
             elif self.modflags['pl']=='dbr':
-                # alpha3(ML) = -0.5, pc_br2 = 0.5 GeV, delta2(M-L) = 0.5
-                startpos+=[-0.5, 500., 0.5]
+                # alpha3(ML) = -3.0, pc_br2 = 0.5 GeV, delta2(M-L) = 0.5
+                startpos += [-3.0, 500., 0.5]
+                startpos_err += [-3.0*NormScale, 500.*NormScale, 0.5*NormScale]
         
             elif self.modflags['pl']=='dbr2':
-                # alpha3(ML) = -0.5, rig_br2 = 0.5 GeV, delta2(M-L) = 0.5
-                startpos+=[-0.5, 500., 0.5]
+                # alpha3(ML) = -3.0, rig_br2 = 0.5 GeV, delta2(M-L) = 0.5
+                startpos += [-3.0, 500., 0.5]
+                startpos_err += [-3.0*NormScale, 500.*NormScale, 0.5*NormScale]
         
         # add universal delta (Strong 2015 ICRC)
         if self.modflags['pl']=='br' and self.modflags['one_d']:
             if self.modflags['fixd']==None:
-                startpos+=[0.5]
+                startpos += [0.5]
+                startpos_err += [0.5*NormScale]
 
         # add common alpha2(M)=2.37, pc_br1(H-M)=5870 MeV, delta1 = 0.5
         if self.modflags['pl']=='dbr':
-            startpos+=[2.37, 5870., 0.5]
+            startpos += [2.37, 5870., 0.5]
+            startpos_err += [2.37*NormScale, 5870.*NormScale, 0.5*NormScale]
         
         # add common alpha2(M)=2.37, pc_br1(H-M)=5870 MeV, delta1 = 0.5
         if self.modflags['pl']=='dbr2':
-            startpos+=[2.37, 5870., 0.5]
+            startpos += [2.37, 5870., 0.5]
+            startpos_err += [2.37*NormScale, 5870.*NormScale, 0.5*NormScale]
         
-        # print ("## startpos=", startpos)
-        return np.array(startpos)
+        if self.modflags['crscaling']:
+            startpos_err[self.AMS02_inds[0]*2+1] = 0.0 # to make AMS02 scaling always to 1.0
+        #print ("## startpos, startpos_err =", startpos, startpos_err)
+        return np.array(startpos), np.array(startpos_err)
         
         
     # default parameter names
