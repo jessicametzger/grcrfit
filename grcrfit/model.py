@@ -394,7 +394,7 @@ class Model():
                     else:
                         current_phi = theta[i]
                         current_scale = 1
-                        
+
                     crflux_ls[index]=self.crformula(LIS_params, current_phi, self.CREs[index], 
                                                    self.CRels[index])*current_scale
             
@@ -632,7 +632,8 @@ class Model():
             # instead, we limit AMSscaling in lnprior)
             if self.modflags['crscaling']:
                 theta=np.array(theta)
-                theta[2*np.array(self.AMS02_inds) + 1] = 1.
+                #theta[2*np.array(self.AMS02_inds) + 1] = 1.  # this will override h_scale
+                theta[2*np.array(self.AMS02_inds[0]) + 1] = 1.
                 theta=list(theta)
             
             crlike=0
@@ -763,9 +764,9 @@ class Model():
                 # priors on scaling factors.
                 if self.modflags['crscaling']:
                     ##lp += -.5*np.sum(((theta[1:self.ncrparams:2] - self.scales)/self.scaleerrs)**2.)
-                    lp += -.5*np.sum(((theta[1:self.ncrparams:2] - self.scales)/(0.1/3))**2.) # hard coded
+                    lp += -.5*np.sum(((theta[1:self.ncrparams:2] - self.scales)/(0.05))**2.) # hard coded
                 if self.modflags['grscaling']:
-                    lp += -.5*np.sum(((theta[self.ncrparams] - 1)/(0.2/3))**2.) # hard coded, allow larger deviation (from 1) than cr_scale
+                    lp += -.5*np.sum(((theta[self.ncrparams] - 1)/(0.1))**2.) # hard coded, allow larger deviation (from 1) than cr_scale
                     
                 return lp
             
