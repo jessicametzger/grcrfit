@@ -385,6 +385,48 @@ def bestfit_plot(flag, cutoff=0):
         plt.plot(myModel.GREs[i]*1e-3, grfluxes[i], color='blue', 
                  label=r'model, $\chi^2$ = '+str(round(gr_chisqu[i],2)),lw=1)
         
+        vals = [myModel.GREs[i][j]*1e-3 for j in range(len(myModel.GREs[i]))]
+        grfile = open(path+flag+'/grspec.dat', 'w')
+        #print ("GREs:", end=" ")
+        grfile.write("GREs: ")
+        for k in range(len(vals)):
+            #print (vals[k], end=" ")
+            grfile.write('{:.3f}'.format(vals[k])+' ')
+        
+        #print("")
+        grfile.write("\n")
+
+        vals = [ebrfluxes[i][j] for j in range(len(ebrfluxes[i]))]
+        #print("ebrflux:", end=" ")
+        grfile.write("ebrflux: ")
+        for k in range(len(vals)):
+            #print (vals[k], end=" ")
+            grfile.write('{:.3e}'.format(vals[k])+' ')
+        
+        #print("")
+        grfile.write("\n")
+
+        vals0 = enh2_f[i]*grfluxes_pp[i]+grfluxes_pHe[i]*enf.abund_rats_dict['he']+grfluxes_Hep[i]+grfluxes_HeHe[i]*enf.abund_rats_dict['he']
+        vals = [vals0[j] for j in range(len(vals0))]
+        #print("nnflux:", end=" ")
+        grfile.write("nnflux: ")
+        for k in range(len(vals)):
+            #print (vals[k], end=" ")
+            grfile.write('{:.3e}'.format(vals[k])+' ')
+        
+        #print("")
+        grfile.write("\n")
+
+        vals = [grfluxes[i][j] for j in range(len(grfluxes[i]))]
+        #print("grflux:", end=" ")
+        grfile.write("grflux: ")
+        for k in range(len(vals)):
+            #print (vals[k], end=" ")
+            grfile.write('{:.3e}'.format(vals[k])+' ')
+        
+        #print("")
+        grfile.write("\n")
+
         # plot data
         #GRdata_old columns: Emean, Elow, Ehigh, value, stat-, stat+, sys-, sys+
         xerr_up = myModel.GRdata_old[i][:,2] - myModel.GRdata_old[i][:,0]
@@ -393,6 +435,53 @@ def bestfit_plot(flag, cutoff=0):
         plt.errorbar(x_axis*1e-3, myModel.GRdata[i][:,1], yerr=myModel.GRdata[i][:,2], xerr=xerr,\
                      color='black', label=r'data',marker='o',ls='',ms=4,zorder=3)
         
+        vals = [x_axis[j]*1e-3 for j in range(len(x_axis))]
+        #print("x_axis:", end=" ")
+        grfile.write("x_axis: ")
+        for k in range(len(vals)):
+            #print (vals[k], end=" ")
+            grfile.write('{:.3f}'.format(vals[k])+' ')
+        
+        #print("")
+        grfile.write("\n")
+
+        vals = [xerr[j] for j in range(len(xerr))]
+        #print("xerr", end=" ")
+        grfile.write("xerr_l: ")
+        for k in range(len(vals[0])):
+            #print (vals[k], end=" ")
+            grfile.write('{:.3f}'.format(vals[0][k])+' ')
+        
+        #print("")
+        grfile.write("\n")
+        grfile.write("xerr_h: ")
+        for k in range(len(vals[1])):
+            grfile.write('{:.3f}'.format(vals[1][k])+' ')
+        
+        #print("")
+        grfile.write("\n")
+
+        vals = [myModel.GRdata[i][:,1][j] for j in range(len(myModel.GRdata[i][:,1]))]
+        #print("GRdata:", end=" ")
+        grfile.write("GRdata: ")
+        for k in range(len(vals)):
+            #print (vals[k], end=" ")
+            grfile.write('{:.3e}'.format(vals[k])+' ')
+        
+        #print("")
+        grfile.write("\n")
+
+        vals = [myModel.GRdata[i][:,2][j] for j in range(len(myModel.GRdata[i][:,1]))]
+        #print("GRdata_err:", end=" ")
+        grfile.write("GRdata_err: ")
+        for k in range(len(vals)):
+            #print (vals[k], end=" ")
+            grfile.write('{:.3e}'.format(vals[k])+' ')
+        
+        #print("")
+        grfile.write("\n")
+        grfile.close()
+
         # plot paraphernalia
         plt.title(myModel.GRexps[i].upper().replace('_',' '))
         plt.xlabel('E [GeV]')
