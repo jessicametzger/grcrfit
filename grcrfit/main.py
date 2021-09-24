@@ -13,7 +13,7 @@ from .run import Run
 def run_fit(flag, fdict, rerun=False, nsteps=5000, nwalkers=None, PT=True, ntemps=10, processes=None,
             modflags={'pl': 's', 'enh': 0, 'weights': None, 'priors': 0, 'crscaling': False,
                       'grscaling': False, 'enhext': False, 'priorlimits': False, 'vphi_err': 100.,
-                      'fixd': None, 'one_d': True, 'fix_vphi': None},
+                      'fixd': None, 'one_d': True, 'fix_vphi': None, 'scaleRange': None},
             save_steps=1000.):
     
     # initialize run

@@ -65,6 +65,7 @@ class Model():
         # - get various parameter counts to help llike, lprob 
         self.phis=[]
         self.phierrs=[]
+        self.scaleRanges=[]
         self.CRels=[]
         self.CRexps=[]
         self.CRexps_phi=[] ### duplicate based on phi will be removed
@@ -107,6 +108,17 @@ class Model():
                     self.CRZs+=[ph.Z_DICT[elkey.lower()]]
                     self.CRMs+=[ph.M_DICT[elkey.lower()]]
                     self.CRtimes+=[self.data[elkey][expkey][1]]
+                    if self.modflags['scaleRange']==None:
+                        self.scaleRanges+=[0.0]
+                    else:
+                        if not (elkey in modflags['scaleRange']):
+                            self.scaleRanges+=[0.0]
+                        else:
+                            dict_scaleRanges = {k.lower():v for k, v in modflags['scaleRange'][elkey].items()}
+                            if expkey in dict_scaleRanges:
+                                self.scaleRanges+=[dict_scaleRanges[expkey]]
+                            else:
+                                self.scaleRanges+=[0.0]
                     
                     # will need to distinguish voyager data for likelihood weighting
                     if 'voyager1' in expkey.lower() and '2012' in expkey:
@@ -118,6 +130,7 @@ class Model():
         # make everything a np array
         self.phis=np.array(self.phis).astype(np.float)
         self.phierrs=np.array(self.phierrs).astype(np.float)
+        self.scaleRanges=np.array(self.scaleRanges).astype(np.float)
         self.CRZs=np.array(self.CRZs).astype(np.float)
         self.CRMs=np.array(self.CRMs).astype(np.float)
         self.CRels=np.array(self.CRels)
@@ -156,13 +169,22 @@ class Model():
             self.match_inds+=[duplicates]
         
         # remove duplicates:
+        print ("## self.phis=", self.phis)
+        print ("## self.phierrs=", self.phierrs)
+        print ("## self.CRexps", self.CRexps)
+        print ("## self.CRexps_phi", self.CRexps_phi)
+        print ("## self.scaleRanges", self.scaleRanges)
         self.phis = np.delete(self.phis, self.remove_inds)
         self.phierrs = np.delete(self.phierrs, self.remove_inds)
         self.phitimes = np.delete(self.phitimes, self.remove_inds)
         self.CRexps_phi = np.delete(self.CRexps_phi, self.remove_inds)
+        self.scaleRanges = np.delete(self.scaleRanges, self.remove_inds)
         # dump phi and phierrs for diagnostics
-        # print ("### self.phis=", self.phis)
-        # print ("### self.phierrs=", self.phierrs)
+        print ("### self.phis=", self.phis)
+        print ("### self.phierrs=", self.phierrs)
+        print ("### self.CRexps", self.CRexps)
+        print ("### self.CRexps_phi", self.CRexps_phi)
+        print ("### self.scaleRanges", self.scaleRanges)
         # if voyager phi is fixed, update the initial values
         if not self.modflags['fix_vphi']==None: # if voyager phis are fixed
             for i in range(len(self.CRexps_phi)):
@@ -180,7 +202,7 @@ class Model():
         # If 'crscaling'=True, they will be used in prior calculation (lp_phi). Also will be used as hard limit
         if self.modflags['crscaling']:
             self.scales = np.repeat(1, self.phis.shape[0])
-            self.scaleerrs = np.repeat(0.03, self.phis.shape[0])
+            ### self.scaleerrs = np.repeat(0.03, self.phis.shape[0]) ## we will use self.scaleRanges instead
         
         
         # determine order of the elements' LIS parameters
@@ -740,9 +762,10 @@ class Model():
                     
                 # priors on scaling factors.
                 if self.modflags['crscaling']:
-                    lp += -.5*np.sum(((theta[1:self.ncrparams:2] - self.scales)/self.scaleerrs)**2.)
+                    ##lp += -.5*np.sum(((theta[1:self.ncrparams:2] - self.scales)/self.scaleerrs)**2.)
+                    lp += -.5*np.sum(((theta[1:self.ncrparams:2] - self.scales)/(0.1/3))**2.) # hard coded
                 if self.modflags['grscaling']:
-                    lp += -.5*np.sum(((theta[self.ncrparams] - 1)/0.2)**2.) # hard coded, allow larger deviation (from 1) than cr_scale
+                    lp += -.5*np.sum(((theta[self.ncrparams] - 1)/(0.2/3))**2.) # hard coded, allow larger deviation (from 1) than cr_scale
                     
                 return lp
             
@@ -781,7 +804,8 @@ class Model():
                 for kk in range(len(theta_slice2)):
                     CRscale = theta_slice2[kk]
                     scale0 = self.scales[kk]
-                    err0 = self.scaleerrs[kk]
+                    ##err0 = self.scaleerrs[kk]
+                    err0 = self.scaleRanges[kk]
                     if (CRscale<scale0-err0 or CRscale>scale0+err0):
                         return -np.inf
                 ## set AMSscaling very close to 1. Not used anymore since it is now always to 1 (startpos=1.0 with 0 error)
@@ -1090,7 +1114,8 @@ class Model():
             startpos[0::2] = self.phis
             startpos[1::2] = self.scales
             startpos_err[0::2] = self.phis*NormScale
-            startpos_err[1::2] = self.scales*NormScale
+            #startpos_err[1::2] = self.scales*NormScale
+            startpos_err[1::2] = self.scaleRanges*NormScale
             
             startpos = list(startpos)
             startpos_err = list(startpos_err)
@@ -1174,7 +1199,7 @@ class Model():
         
         if self.modflags['crscaling']:
             startpos_err[self.AMS02_inds[0]*2+1] = 0.0 # to make AMS02 scaling always to 1.0
-        #print ("## startpos, startpos_err =", startpos, startpos_err)
+        print ("## startpos, startpos_err =", startpos, startpos_err)
         return np.array(startpos), np.array(startpos_err)
         
         
