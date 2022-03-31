@@ -66,6 +66,8 @@ def get_metadata(flag,runID=0):
     except KeyError: metadata['modflags']['enhext']=False
     try: test=metadata['modflags']['priorlimits']
     except KeyError: metadata['modflags']['priorlimits']=False
+    try: test=metadata['modflags']['phi_err_ratio']
+    except KeyError: metadata['modflags']['phi_err_ratio'] = 0.15
     try: test=metadata['modflags']['vphi_err']
     except KeyError: metadata['modflags']['vphi_err'] = 100.0
     try: test=metadata['modflags']['fixd']
@@ -205,7 +207,7 @@ class Fitter:
     # Initialize the Fitter object
     def __init__(self, data, nsteps=5000, nwalkers=None, PT=True, ntemps=10, processes=None, rerun=False, flag=None,\
                  modflags = {'pl': 's', 'ppmodel': 0, 'enh': 0, 'weights': None, 'priors': 0, 'crscaling': False, \
-                             'grscaling': False, 'enhext': False, 'priorlimits': False, 'vphi_err': 100.0, \
+                             'grscaling': False, 'enhext': False, 'priorlimits': False, 'phi_err_ratio': 0.15, 'vphi_err': 100.0, \
                              'fixd': None, 'one_d': True, 'fix_vphi': None}):
         
         self.data=data
@@ -237,6 +239,8 @@ class Fitter:
         except KeyError: self.modflags['enhext'] = False
         try: test=self.modflags['priorlimits']
         except KeyError: self.modflags['priorlimits'] = False
+        try: test=self.modflags['phi_err_ratio']
+        except KeyError: self.modflags['phi_err_ratio'] = 0.15
         try: test=self.modflags['vphi_err']
         except KeyError: self.modflags['vphi_err'] = 100.0
         try: test=self.modflags['fixd']
@@ -335,7 +339,7 @@ class Run:
     # Initialize Run object
     def __init__(self, flag, fdict, rerun=False, nwalkers=None,
                  modflags = {'pl': 's', 'ppmodel': 0, 'enh': 0, 'weights': None, 'priors': 0, 'crscaling': False,
-                             'grscaling': False, 'enhext': False, 'priorlimits': False, 'vphi_err': 100.0,
+                             'grscaling': False, 'enhext': False, 'priorlimits': False, 'phi_err_ratio': 0.15, 'vphi_err': 100.0,
                               'fixd': None, 'one_d': True, 'fix_vphi': None, 'scaleRange': None}):
         
         self.metadata={}
@@ -367,10 +371,12 @@ class Run:
             self.metadata['nwalkers'] = nwalkers
             self.metadata['modflags'] = modflags
         
+        try: test=self.metadata['modflags']['phi_err_ratio']
+        except: self.metadata['modflags']['phi_err_ratio'] = 0.15
         try: test=self.metadata['modflags']['vphi_err']
         except: self.metadata['modflags']['vphi_err'] = 100.0
         
-        self.data = get_data(self.metadata['fdict'], vphi_err = self.metadata['modflags']['vphi_err'])
+        self.data = get_data(self.metadata['fdict'], phi_err_ratio = self.metadata['modflags']['phi_err_ratio'], vphi_err = self.metadata['modflags']['vphi_err'])
 
         return
     
