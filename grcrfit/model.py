@@ -27,18 +27,18 @@ from . import enhs as enf
 # - 'weights' = 3-item list giving relative weights of CR, Voyager, and GR log-like.
 #    Note that priors aren't weighted, so may need to tune weight normalization to get
 #    correct relative weighting between likelihood & prior. If weights==None, no weighting
-# - 'priors' = 0 or 1. If 0, gaussian priors on phis with sigma=0.15*phi (hard coded). If 1, no priors on phi. In either case, initial values taken from CR data file.
-#    If 'priors' = 0, gaussian priors on scaling is also assumed.
+# - 'priors' = 0 or 1. If 0, gaussian priors on scaling (0.05/0.1 for cr/gr; hard coded). If 1, flat prior on scaling. 
+#    NB param limits for cr-scaling are set by scaleRanges (default=0.15), and gr-scaling from 0.5 to 2.0 (hard coded). 
+#    Also NB phis are limited within +/- 0.15*phi0 where phi0 is the value by Usoskin+17.
 #    (NB the effect on fit is minor, since the number of data points is large and hence data will dominate the fit.)
 # - 'vphi_err': Voyager phi error (1sigma) can be set and used if 'priors'=0.
 # - 'cr/grscaling' = True or False, whether or not to scale all CR experiments  except AMS-02 
 #    or all GR experiments to correct for systematic errors
-#   (We do NOT recommend 'crscaling'=True, since the fit does not converge well)
 # - 'enhext' = True or False. If True we calculate the enhancement factor explicitly assuming single PL with index of highE. If False we extrapolate below 10 GeV.
 # - 'priorlimits' = True or False, whether or not to constrain the parameter in specified ranges
 # - 'fixd': If "None" the delta is treated as a free parameter. If some number is given, deita is fixed to that value.
 # - 'one_d' = True or False, whether we use single value or multiple values for delta (sharpness of the break)
-# - 'fix_vphi': If "None" the voyager phi is treated as a free parameter ('priors' and 'vphi_err' work).
+# - 'fix_vphi': If "None" the voyager phi is treated as a free parameter ('vphi_err' work).
 # -  If some number is given, it is virtually fixed to that value. ('vphi_err' is ignored)
 
 class Model():
@@ -109,16 +109,16 @@ class Model():
                     self.CRMs+=[ph.M_DICT[elkey.lower()]]
                     self.CRtimes+=[self.data[elkey][expkey][1]]
                     if self.modflags['scaleRange']==None:
-                        self.scaleRanges+=[0.0]
+                        self.scaleRanges+=[0.15]
                     else:
                         if not (elkey in modflags['scaleRange']):
-                            self.scaleRanges+=[0.0]
+                            self.scaleRanges+=[0.15]
                         else:
                             dict_scaleRanges = {k.lower():v for k, v in modflags['scaleRange'][elkey].items()}
                             if expkey in dict_scaleRanges:
                                 self.scaleRanges+=[dict_scaleRanges[expkey]]
                             else:
-                                self.scaleRanges+=[0.0]
+                                self.scaleRanges+=[0.15]
                     
                     # will need to distinguish voyager data for likelihood weighting
                     if 'voyager1' in expkey.lower() and '2012' in expkey:
@@ -192,14 +192,14 @@ class Model():
                     self.phis[i] = self.vphi0
                     self.phierrs[i] = self.vphi_err0
                     # dump phi and phierrs for diagnostics
-                    # print ("## self.phis=", self.phis)
-                    # print ("## self.phierrs=", self.phierrs)
+                    print ("## self.phis=", self.phis)
+                    print ("## self.phierrs=", self.phierrs)
         
         # also create list of ref. scaling factors & errors (all 1, 0.03)
         # corresponding with the list of phi's, for prior calculation.
         # (So proton and He share the common scaling for the same phi)
         # Don't ignore AMS-02, scaling will be set to 1 anyways.
-        # If 'crscaling'=True, they will be used in prior calculation (lp_phi). Also will be used as hard limit
+        # If 'crscaling'=True, they will be used in prior calculation (lp_scale). Also will be used as hard limit
         if self.modflags['crscaling']:
             self.scales = np.repeat(1, self.phis.shape[0])
             ### self.scaleerrs = np.repeat(0.03, self.phis.shape[0]) ## we will use self.scaleRanges instead
@@ -753,14 +753,9 @@ class Model():
         # force spectral indices to be negative, normalizations to be positive
         if self.modflags['priors']==0:
             
-            # we keep this for compatibility, but do not use in probability calculation.
-            # (lnprior now returns 0, not lp_phi)
-            def lp_phi(theta): 
+            def lp_scale(theta): 
                 lp=0
                 
-                # priors on phis; must account for index interlacing if crscaling
-                lp += -.5*np.sum(((theta[0:self.ncrparams:(int(self.modflags['crscaling'])+1)] - self.phis)/self.phierrs)**2.)
-                    
                 # priors on scaling factors.
                 if self.modflags['crscaling']:
                     ##lp += -.5*np.sum(((theta[1:self.ncrparams:2] - self.scales)/self.scaleerrs)**2.)
@@ -773,7 +768,7 @@ class Model():
         # no gaussian priors
         elif self.modflags['priors']==1:
             
-            def lp_phi(theta):
+            def lp_scale(theta):
                 return 0
             
         else:
@@ -799,7 +794,8 @@ class Model():
                 err0 = self.phierrs[kk]
                 if (phi<phi0-err0 or phi>=phi0+err0):
                     return -np.inf
-            ### limit CRscale so that the fit converge well. set AMS scaling to 1. limit within CRscale 1+/-0.3
+            ### limit CRscale to be 1 +/- scaleRange(default 0.15) so that the fit converge well.
+            ### NB AMS scaling is always 1. (startpos=1.0 with 0 error)
             if self.modflags['crscaling']:
                 theta_slice2 = theta[1:self.ncrparams:(int(self.modflags['crscaling'])+1)]
                 for kk in range(len(theta_slice2)):
@@ -809,7 +805,7 @@ class Model():
                     err0 = self.scaleRanges[kk]
                     if (CRscale<scale0-err0 or CRscale>scale0+err0):
                         return -np.inf
-                ## set AMSscaling very close to 1. Not used anymore since it is now always to 1 (startpos=1.0 with 0 error)
+                ## set AMS scaling very close to 1. Not used anymore since it is now always 1 (startpos=1.0 with 0 error)
                 #AMSscale = theta_slice2[self.AMS02_inds[0]]
                 #if AMSscale<=1-0.005 or AMSscale>=1+0.005:
                 #    return -np.inf
@@ -818,19 +814,20 @@ class Model():
                 GRscale = theta[self.ncrparams]
                 if (GRscale<0.5 or GRscale>2.0):
                     return -np.inf
-            ### see if the parameter is voyager phi
-            if not self.modflags['fix_vphi']==None: # if voyager phis are fixed (some variation allowed for plotting)
-                for i in range(len(self.CRexps_phi)):
-                    if 'voyager1' in self.CRexps_phi[i]:
-                        vphi = theta_slice[i]
-                        # print ("# vphi=", vphi)
-                        if vphi<=self.vphi0-self.vphi_err0 or vphi>self.vphi0+self.vphi_err0:
-                            return -np.inf
+            #### see if the parameter is voyager phi
+            #### (not used anymore since vphi_err0 is already used for err0 above) 
+            #if not self.modflags['fix_vphi']==None: # if voyager phis are fixed (some variation allowed for plotting)
+            #    for i in range(len(self.CRexps_phi)):
+            #        if 'voyager1' in self.CRexps_phi[i]:
+            #            vphi = theta_slice[i]
+            #            # print ("# vphi=", vphi)
+            #            if vphi<=self.vphi0-self.vphi_err0 or vphi>self.vphi0+self.vphi_err0:
+            #                return -np.inf
+
             ### positive phis # now allow negative values
             #if np.any(theta[0:self.ncrparams:(int(self.modflags['crscaling'])+1)] <= 0):
             #    return -np.inf
             
-
             for i in range(self.nels):
                 # positive (high-energy, momentum) index
                 if theta[self.ncrparams + int(self.modflags['grscaling']) + i*self.nLISparams + 1] < 0:
@@ -1011,15 +1008,15 @@ class Model():
                         return -np.inf
                     
                     # break momentum 1 (H-M) between pc_th(1e3) to 1e4 MeV, and
-                    # break momentum 2 (M-L) between 1e2 MeV to righ_th(1e3 MeV)
+                    # break momentum 2 (M-L) between 1e2 MeV to rig_th(1e3 MeV)
                     # We may want to share the break among spices in rigidity (rather than momentum). So rig_br also calculated 
                     pc_br1 = theta[-2]
+                    pc_br2 = theta[self.ncrparams + int(self.modflags['grscaling']) + i*self.nLISparams + 3]
                     massNumber = ph.M_DICT[self.LISorder[i].lower()]
                     atomNumber = ph.Z_DICT[self.LISorder[i].lower()]
                     rig_br1 = pc_br1/atomNumber # in MV
+                    rig_br2 = pc_br2/atomNumber # in MV
                     pc_th = 1e3
-                    if (self.LISorder[i].lower() == 'he'):
-                      pc_th = 2e3
                     if pc_br1 < pc_th or pc_br1 > 1e4:
                         return -np.inf
                     if pc_br2 < 1e2 or pc_br2 > pc_th:
@@ -1054,12 +1051,11 @@ class Model():
                     if alpha2 < 2.2 or alpha2 > 2.7:
                         return -np.inf
                     
-                    # break rigidity 1 (H-M) between righ_th(1e3) to 1e4 MV, and
+                    # break rigidity 1 (H-M) between rig_th(1e3) to 1e4 MV, and
                     # break rigidity 2 (M-L) between 1e2 MV to righ_th(1e3 MV)
                     rig_br1 = theta[-2]
-                    rig_th = 1e3
-                    if (self.LISorder[i].lower() == 'he'):
-                      rig_th = 2e3
+                    rig_br2 = theta[self.ncrparams + int(self.modflags['grscaling']) + i*self.nLISparams + 3]
+                    rig_th = 2e3
                     if rig_br1 < rig_th or rig_br1 > 1e4:
                         return -np.inf
                     if rig_br2 < 1e2 or rig_br2 > rig_th:
@@ -1073,7 +1069,7 @@ class Model():
                     if  delta2 < 0.05 or delta2 > 2.0:
                         return -np.inf
                     
-            return lp_phi(theta)
+            return lp_scale(theta)
         
         
         # CREATE LNPROB FUNCTION
