@@ -86,9 +86,9 @@ def flux_brpl(LIS_params, phi, E_TOA, el):
     return flux_TOA_model
 
 def flux_dbrpl(LIS_params, phi, E_TOA, el):
-    LIS_norm, alpha1, alpha3, pc_br2, delta2, alpha2, pc_br1, delta1 = LIS_params
+    LIS_norm, alpha1, alpha3, pc_br2, delta2, alpha1m2, pc_br1, delta1 = LIS_params
     # independent among elements: LIS_norm, alpha1(HE), alpha3(LE), pc_br2(M-L), delta2(M-L)
-    # common among elements: alpha2(ME), pc_br1(H-M), delta1(H-M)
+    # common among elements: alpha1m2(ME), pc_br1(H-M), delta1(H-M)
 
     try:
         # figure out which interstellar energies/momenta you'll need
@@ -110,9 +110,9 @@ def flux_dbrpl(LIS_params, phi, E_TOA, el):
     return flux_TOA_model
 
 def flux_dbr2pl(LIS_params, phi, E_TOA, el):
-    LIS_norm, alpha1, alpha3, rig_br2, delta2, alpha2, rig_br1, delta1 = LIS_params
+    LIS_norm, alpha1, alpha3, rig_br2, delta2, alpha1m2, rig_br1, delta1 = LIS_params
     # independent among elements: LIS_norm, alpha1(HE), alpha3(LE), rig_br2(M-L), delta2(M-L)
-    # common among elements: alpha2(ME), rig_br1(H-M), delta1(H-M)
+    # common among elements: alpha1m2(ME), rig_br1(H-M), delta1(H-M)
 
     try:
         # figure out which interstellar energies/momenta you'll need
@@ -196,12 +196,13 @@ def flux_brpl_IS(LIS_params, p, el):
 def flux_dbrpl_IS(LIS_params, p, el):
     LIS_norm, alpha1, alpha3, pc_br2, delta2, alpha2, pc_br1, delta1 = LIS_params
     # independent among elements: LIS_norm, alpha1(HE), alpha3(LE), pc_br2(M-L), delta2(M-L)
-    # common among elements: alpha2(ME), pc_br1(H-M), delta1(H-M)
+    # common among elements: alpha1m2(ME), pc_br1(H-M), delta1(H-M)
     p=np.array(p)
 
     try:
 
         # construct true LIS at the same energies (momenta)
+        alpha2 = alpha1-alpha1m2
         p_br1=pc_br1/ph.C_SI # in MeV/(m/s)
         p_ref = ph.p10_DICT[el]
         flux=((p/p_br1)**(alpha1/delta1) + (p/p_br1)**(alpha2/delta1))
@@ -224,14 +225,15 @@ def flux_dbrpl_IS(LIS_params, p, el):
     return flux
     
 def flux_dbr2pl_IS(LIS_params, p, el):
-    LIS_norm, alpha1, alpha3, rig_br2, delta2, alpha2, rig_br1, delta1 = LIS_params
+    LIS_norm, alpha1, alpha3, rig_br2, delta2, alpha1m2, rig_br1, delta1 = LIS_params
     # independent among elements: LIS_norm, alpha1(HE), alpha3(LE), rig_br2(M-L), delta2(M-L)
-    # common among elements: alpha2(ME), rig_br1(H-M), delta1(H-M)
+    # common among elements: alpha1m2(ME), rig_br1(H-M), delta1(H-M)
     p=np.array(p)
 
     try:
 
         # construct true LIS at the same energies (momenta)
+        alpha2 = alpha1-alpha1m2
         massNumber = ph.M_DICT[el]
         atomNumber = ph.Z_DICT[el]
         pc_br1 = rig_br1*atomNumber # in MeV
